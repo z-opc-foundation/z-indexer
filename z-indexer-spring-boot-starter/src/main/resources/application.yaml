@@ -1,0 +1,82 @@
+# 代码索引服务配置（port / profile 由 c2f-boot 框架与部署环境管理）
+future-team:
+  indexer:
+    enabled: true
+    # repos 根目录：其下有 repos/（git 工作副本）、indexer/（索引产物）、bin/（内置 maven/工具链）。
+    # /home/admin/future-team 为共享 NAS 挂载（同 future-team 主服务 workspace，持久化），
+    # indexer 数据放 .future_team/indexer/ 子目录（与其他模块 .meta/.agent 同级，重启不丢）。
+    # 注意值不带 /repos 后缀（reposDir() 会拼 repos/ 子目录）。
+    repos-root: /home/admin/future-team/.future_team/indexer
+    # 轮询间隔（10 分钟），启动后 1 分钟开跑
+    poll-interval-ms: 600000
+    poll-initial-delay-ms: 60000
+    build-timeout-minutes: 45
+    # mvn 子进程 JVM 参数：容器 limit 4g，服务 JVM 堆 2g（实测 gc.log ParNew 629m + CMS 1398m ≈ 2.03g）。
+    # 0901 曾在堆 1g 时被 cgroup OOM kill（当时 12 仓常驻未池化、服务堆满载 GC 风暴期，2.4g+1.75g≈4.15g 超限）；
+    # 0902 字符串池化后（acecda39）服务堆实占 ~1g（老年代 46%），且构建串行（build-concurrency=1），
+    # mvn 峰值 1.6g + 服务实占 ~1.5g ≈ 3.1g，余量 0.9g，升 1g 吃下 javac OOM 仓
+    # （inpatient/thirdparty-integration 在 768m 下 "An unknown compilation problem" 实证两轮）。
+    maven-opts: "-Xmx1024m -XX:MaxMetaspaceSize=256m"
+    # 单实例并发构建数：768m 堆单进程 RSS≈1.5g，服务 JVM 2.4g + 1 构建 ≈ 3.9g 已顶满 4g limit，
+    # 故单实例只能 1；分布式扩容靠 Deployment 多副本（每副本独立 4g 预算，
+    # 通过 NAS locks/<repo>.lock 抢锁拆仓，同仓互斥、异仓并行），升 limit 后可开 2
+    build-concurrency: 1
+    # mvn/git 命令留空 = 自足模式：git 走 JGit（纯 Java），
+    # mvn 用内置发行版（bin/apache-maven-3.8.8-bin.zip 启动释放，走私服 settings）
+    # 生产容器为纯 JRE 镜像无 git/mvn 命令；显式配置可覆盖为本机命令（如 E2E）
+    # node 同理：前端仓索引用内置 linux-x64 发行版（bin/node-bin.zip 启动释放）
+    node-cmd: ""
+    # 查询端
+    # 冷仓首查异步加载（loading+30s 重试提示）已上线；内存问题已从根上治：
+    # RepoIndex 加载期字符串池化后同值 FQN/路径共享实例（dtc 440MB→~60MB，7-8 倍），
+    # 未池化时 12 仓实测 GC 风暴（CMS 老年代 1398142/1398144 满载、每 2s Full CMS，#424375）。
+    # 池化后实测：11 仓常驻（57.7万符号/248.5万边）堆 862MB、GC 15 次/2.6s 健康；
+    # 18 仓满载 ≈ 老年代（1398MB）75%，是 2g 堆的安全上限，再往上需升堆/容器 limit
+    lru-max-repos: 18
+    # 启动预热：SUCCESS 仓按索引行数取前 N 个（错峰 60s 避开首轮 poller 构建）。
+    # 0902 提到 12：agent 撞冷加载（30s loading+重试）体验差，预热 Top12 大仓后
+    # 常见仓零冷启动；实测 12 仓 ≈ 800MB 池化数据 ≈ 老年代 ~60%，安全
+    warmup-repos: 12
+    # 巨仓构建让路（0902 实证：22:44 部署后预热 12 仓 + mvn 1g 堆构建 hbos-inpatient
+    # 叠加把 pod 顶爆 cgroup 重启——process.uptime 21min + build-log 半行戛然而止）。
+    # 这些仓构建前查询端 LRU 驱逐冷仓到 build-yield-repos 低水位，构建后查询自然回填；
+    # 与常态高常驻不冲突，只在巨仓构建的几分钟内临时收缩
+    big-repo-codes: "hbos-inpatient,hbos-thirdparty-integration"
+    build-yield-repos: 4
+    default-depth: 2
+    max-result-nodes: 200
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.c2f.galaxy.future.team.indexer: INFO
+
+# Redis（0902 接入，c2f-boot-starter-cache 依赖 + spring.redis.* 直配）
+# 重要（0902 CrashLoop 根因）：c2f.application.cache.* 前缀只被配置中心的
+# CacheEnvironmentPostProcessor 消费（Nacos namespace=cache、dataId=应用名），
+# 写在本地 yaml 不生效——配置中心无 future-team-indexer 条目时翻译层空转，
+# Redisson 拿默认值连 localhost:6379 失败（Connection refused）直接阻止启动。
+# 故这里直配 RedissonAutoConfiguration 原生的 spring.redis.*；后续若在配置中心
+# cache namespace 建 dataId=future-team-indexer（内容为 c2f.application.cache.* 格式），
+# 其 property source 优先级更高会自动接管，届时可回迁标准姿势。
+spring:
+  redis:
+    database: 79
+    host: r-bp1b4vmp5do59nohtw.redis.rds.aliyuncs.com
+    password: "YC3p#JTuC6m7"
+    port: 6379
+    lettuce:
+      pool:
+        max-active: 20
+        max-idle: 10
+        max-wait: -1ms
+        min-idle: 2

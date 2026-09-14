@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.yuku123</groupId>
+    <artifactId>z-indexer</artifactId>
+    <version>1.0.0</version>
+
+    
+
+    <artifactId>z-indexer</artifactId>
+    <packaging>pom</packaging>
+
+    <name>z-indexer</name>
+    <description>代码索引服务：仓库注册表 + 定时轮询重建索引 + 符号/调用链查询 + 监控</description>
+
+    <modules>
+        <module>z-indexer-core</module>
+        <module>z-indexer-spring-boot-starter</module>
+    </modules>
+
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <java.version>8</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <proc>none</proc>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 内置 maven 的默认 settings：全部请求走私服 prod-public（容器内无法直连中央仓）。
+     由 IndexBuildService.ensureMavenDist() 释放到 reposRoot/bin/settings.xml，
+     runMvn 以 -s 指定。私服代理 central 全量依赖。
+     mirror 必须显式启用 snapshots：HBOS 域存在 SNAPSHOT 依赖（如 hbos-hsc:3.0.0-SNAPSHOT
+     parent pom），mirror 策略默认继承被镜像仓库（central 为 release-only），不显式开启
+     会直接 Could not find artifact（2026-09-01 生产实锤）；profile 同步提供 snapshots
+     仓库作双保险。 -->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+    <mirrors>
+        <mirror>
+            <id>prod-public</id>
+            <mirrorOf>*</mirrorOf>
+            <name>c2f prod public repository</name>
+            <url>https://mvn.seenew.info/repository/prod-public/</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </mirror>
+    </mirrors>
+    <profiles>
+        <profile>
+            <id>indexer-deps</id>
+            <repositories>
+                <repository>
+                    <id>prod-public</id>
+                    <url>https://mvn.seenew.info/repository/prod-public/</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>prod-public-plugin</id>
+                    <url>https://mvn.seenew.info/repository/prod-public/</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </pluginRepository>
+            </pluginRepositories>
+        </profile>
+    </profiles>
+    <activeProfiles>
+        <activeProfile>indexer-deps</activeProfile>
+    </activeProfiles>
+</settings>

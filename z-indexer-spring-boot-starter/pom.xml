@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>io.github.yuku123</groupId>
+    <artifactId>z-indexer-spring-boot-starter</artifactId>
+    <version>1.0.0</version>
+
+    
+
+    <artifactId>z-indexer-spring-boot-starter</artifactId>
+    <packaging>jar</packaging>
+
+    <name>z-indexer-spring-boot-starter</name>
+    <description>索引服务 Spring Boot 启动 + 查询/管理/监控 REST API</description>
+
+    <dependencies>
+        <!-- indexer-core -->
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+        <artifactId>z-indexer-core</artifactId>
+        <version>${project.version}</version>
+        </dependency>
+
+        <!-- c2f 配置中心（读 bootstrap.yaml 中 c2f.application.name → 设 context-path） -->
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+        <artifactId>z-boot-dependencies</artifactId>
+        <version>1.0.3</version>
+        <type>pom</type>
+        <scope>import</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+        <artifactId>z-boot-config-starter</artifactId>
+        </dependency>
+
+        <!-- c2f Spring Boot Web（REST + slf4j） -->
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+        <artifactId>z-boot-web-starter</artifactId>
+        </dependency>
+
+        <!-- c2f 缓存（Redis）：CacheEnvironmentPostProcessor 把 c2f.application.cache.* 翻译成 spring.redis.*，
+             附带 data-redis(lettuce+pool) 与 redisson（默认启用）；版本与 exclusions 由 c2f-boot BOM 管理 -->
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+        <artifactId>z-boot-cache-starter</artifactId>
+        </dependency>
+
+        <!-- Actuator（健康检查 + metrics） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+            <version>2.7.18</version>
+        </dependency>
+
+        <!-- JSON -->
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+        </dependency>
+
+        <!-- 测试 -->
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
+            <version>6.14.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>galaxy-indexer</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>com.c2f.galaxy.future.team.indexer.IndexerApplication</mainClass>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
