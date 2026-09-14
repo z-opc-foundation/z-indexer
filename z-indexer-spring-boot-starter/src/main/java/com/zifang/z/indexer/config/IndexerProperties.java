@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * 索引服务配置（Nacos 可覆盖）。
  */
-@ConfigurationProperties(prefix = "future-team.indexer")
+@ConfigurationProperties(prefix = "z.indexer")
 public class IndexerProperties {
 
     /** 服务总开关（false 时轮询停止、查询接口仍可用已有索引） */
@@ -15,7 +15,7 @@ public class IndexerProperties {
      * repos 根目录：其下有 repos/（git 工作副本）、indexer/（索引产物）、bin/（内置工具链）。
      * <p>默认 JVM tmpdir（容器 /data 不可写）；生产由 application.yaml 显式配置。
      */
-    private String reposRoot = System.getProperty("java.io.tmpdir", "/tmp") + "/future-team-indexer";
+    private String reposRoot = System.getProperty("java.io.tmpdir", "/tmp") + "/z-indexer";
 
     /** 轮询间隔（ms），默认 10 分钟 */
     private long pollIntervalMs = 600000L;
@@ -65,7 +65,7 @@ public class IndexerProperties {
      * 巨仓列表（逗号分隔 repoCode）：这些仓构建前查询端 LRU 让路（驱逐冷仓到低水位）。
      * 巨仓 mvn 堆与常驻叠加会顶破容器 limit（0902 inpatient 实证 pod cgroup 重启）。
      */
-    private String bigRepoCodes = "";
+    private String bigRepoCodes = "demo-big-repo-1,demo-big-repo-2";
 
     /** 巨仓构建让路后的 LRU 低水位（驱逐冷仓到剩 N 个） */
     private int buildYieldRepos = 4;

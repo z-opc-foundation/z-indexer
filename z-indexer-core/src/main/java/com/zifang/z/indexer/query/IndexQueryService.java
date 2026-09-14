@@ -259,7 +259,7 @@ public class IndexQueryService {
                 while ((n = reader.read(buf)) >= 0) {
                     sb.append(buf, 0, n);
                 }
-                com.alibaba.fastjson.JSONObject obj = com.alibaba.fastjson.JSON.parseObject(sb.toString());
+                com.zifang.util.json.model.JsonObject obj = com.zifang.util.json.JsonUtil.parseObject(sb.toString());
                 String t = obj.getString("indexType");
                 return (t == null || t.isEmpty()) ? "COMPILED" : t;
             } finally {

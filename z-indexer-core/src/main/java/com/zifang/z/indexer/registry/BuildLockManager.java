@@ -1,7 +1,7 @@
 package com.zifang.z.indexer.registry;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.zifang.util.json.JsonUtil;
+import com.zifang.util.json.model.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +89,7 @@ public class BuildLockManager {
             if (!lock.exists()) {
                 return;
             }
-            JSONObject holder = readHolder(lock);
+            JsonObject holder = readHolder(lock);
             if (holder != null && instanceId.equals(holder.getString("instance"))) {
                 lock.delete();
             } else if (holder == null) {
@@ -107,7 +107,7 @@ public class BuildLockManager {
         if (!lock.exists()) {
             return null;
         }
-        JSONObject holder = readHolder(lock);
+        JsonObject holder = readHolder(lock);
         return holder == null ? "?" : holder.getString("instance");
     }
 
@@ -130,18 +130,18 @@ public class BuildLockManager {
     }
 
     private void writeHolder(File lock) throws Exception {
-        JSONObject o = new JSONObject(true);
+        JsonObject o = new JsonObject();
         o.put("instance", instanceId);
         o.put("acquiredAt", System.currentTimeMillis());
         FileWriter w = new FileWriter(lock);
         try {
-            w.write(o.toJSONString());
+            w.write(o.toString());
         } finally {
             w.close();
         }
     }
 
-    private JSONObject readHolder(File lock) {
+    private JsonObject readHolder(File lock) {
         try {
             java.io.BufferedReader reader = new java.io.BufferedReader(
                     new java.io.InputStreamReader(new java.io.FileInputStream(lock),
@@ -153,7 +153,7 @@ public class BuildLockManager {
                 while ((n = reader.read(buf)) >= 0) {
                     sb.append(buf, 0, n);
                 }
-                return JSON.parseObject(sb.toString());
+                return JsonUtil.parseObject(sb.toString());
             } finally {
                 reader.close();
             }

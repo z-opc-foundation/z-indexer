@@ -1,12 +1,13 @@
-# 代码索引服务配置（port / profile 由 c2f-boot 框架与部署环境管理）
-future-team:
+#
+z:
+  indexer:
   indexer:
     enabled: true
     # repos 根目录：其下有 repos/（git 工作副本）、indexer/（索引产物）、bin/（内置 maven/工具链）。
-    # /home/admin/future-team 为共享 NAS 挂载（同 future-team 主服务 workspace，持久化），
+    #
     # indexer 数据放 .future_team/indexer/ 子目录（与其他模块 .meta/.agent 同级，重启不丢）。
     # 注意值不带 /repos 后缀（reposDir() 会拼 repos/ 子目录）。
-    repos-root: /home/admin/future-team/.future_team/indexer
+    repos-root: /var/lib/z-indexer/repos
     # 轮询间隔（10 分钟），启动后 1 分钟开跑
     poll-interval-ms: 600000
     poll-initial-delay-ms: 60000
@@ -37,11 +38,11 @@ future-team:
     # 0902 提到 12：agent 撞冷加载（30s loading+重试）体验差，预热 Top12 大仓后
     # 常见仓零冷启动；实测 12 仓 ≈ 800MB 池化数据 ≈ 老年代 ~60%，安全
     warmup-repos: 12
-    # 巨仓构建让路（0902 实证：22:44 部署后预热 12 仓 + mvn 1g 堆构建 hbos-inpatient
+    #
     # 叠加把 pod 顶爆 cgroup 重启——process.uptime 21min + build-log 半行戛然而止）。
     # 这些仓构建前查询端 LRU 驱逐冷仓到 build-yield-repos 低水位，构建后查询自然回填；
     # 与常态高常驻不冲突，只在巨仓构建的几分钟内临时收缩
-    big-repo-codes: "hbos-inpatient,hbos-thirdparty-integration"
+    big-repo-codes: "demo-big-repo-1,demo-big-repo-2"
     build-yield-repos: 4
     default-depth: 2
     max-result-nodes: 200
@@ -58,22 +59,22 @@ management:
 
 logging:
   level:
-    com.c2f.galaxy.future.team.indexer: INFO
+    com.zifang.z.indexer: INFO
 
-# Redis（0902 接入，c2f-boot-starter-cache 依赖 + spring.redis.* 直配）
-# 重要（0902 CrashLoop 根因）：c2f.application.cache.* 前缀只被配置中心的
+#
+#
 # CacheEnvironmentPostProcessor 消费（Nacos namespace=cache、dataId=应用名），
-# 写在本地 yaml 不生效——配置中心无 future-team-indexer 条目时翻译层空转，
+#
 # Redisson 拿默认值连 localhost:6379 失败（Connection refused）直接阻止启动。
 # 故这里直配 RedissonAutoConfiguration 原生的 spring.redis.*；后续若在配置中心
-# cache namespace 建 dataId=future-team-indexer（内容为 c2f.application.cache.* 格式），
+#
 # 其 property source 优先级更高会自动接管，届时可回迁标准姿势。
 spring:
   redis:
-    database: 79
-    host: r-bp1b4vmp5do59nohtw.redis.rds.aliyuncs.com
-    password: "YC3p#JTuC6m7"
-    port: 6379
+    database: ${REDIS_DB:0}
+    host: ${REDIS_HOST:localhost}
+    password: ${REDIS_PASSWORD:}
+    port: ${REDIS_PORT:6379}
     lettuce:
       pool:
         max-active: 20

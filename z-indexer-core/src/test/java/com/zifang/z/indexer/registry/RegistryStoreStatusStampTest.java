@@ -33,7 +33,7 @@ public class RegistryStoreStatusStampTest {
         OutputStreamWriter w = new OutputStreamWriter(
                 new FileOutputStream(f), StandardCharsets.UTF_8);
         try {
-            w.write(com.alibaba.fastjson.JSON.toJSONString(r));
+            w.write(com.zifang.util.json.JsonUtil.toJson(r));
         } finally {
             w.close();
         }

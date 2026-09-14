@@ -31,3 +31,4 @@ logs/
 # OS distribution artifacts
 .dmg/
 *.dmg
+.flattened-pom.xml

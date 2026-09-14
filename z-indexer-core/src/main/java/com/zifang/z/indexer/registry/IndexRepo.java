@@ -13,7 +13,7 @@ public class IndexRepo {
     /** ref 解析模式：取字典序最大的 tag */
     public static final String REF_MODE_TAG_LATEST = "TAG_LATEST";
 
-    /** 仓库唯一标识（目录名），如 hbos-medication */
+    /** 仓库唯一标识（目录名），如 demo-big-repo-1 */
     private String repoCode;
 
     /** 显示名 */
@@ -25,7 +25,7 @@ public class IndexRepo {
     /** BRANCH / TAG_PATTERN / TAG_LATEST */
     private String refMode = REF_MODE_BRANCH;
 
-    /** BRANCH: 分支名；TAG_PATTERN: 通配表达式，如 release_hbos-medication_version_* */
+    /** BRANCH: 分支名；TAG_PATTERN: 通配表达式，如 release_demo-big-repo-1_version_* */
     private String refValue = "master";
 
     /** 构建类型（预留，当前仅 MAVEN） */

@@ -29,7 +29,7 @@ import java.util.List;
  */
 public class PomIndexerPatcher {
 
-    public static final String INDEXER_GROUP_ID = "com.c2f.ft";
+    public static final String INDEXER_GROUP_ID = "com.zifang";
     public static final String INDEXER_ARTIFACT_ID = "code-indexer";
     public static final String INDEXER_VERSION = "1.0";
 
@@ -89,7 +89,7 @@ public class PomIndexerPatcher {
         // 1) annotationProcessorPaths：追加 code-indexer（幂等）。
         //    新建节点必须带 combine.children="append"：与 parent 链（pluginManagement/
         //    execution）合并时追加而非覆盖，否则 parent 声明的 lombok/mapstruct 等
-        //    processor 会整体丢失，@Data 类直接 cannot find symbol（hbos-charge 实证）。
+        //    processor 会整体丢失，@Data 类直接 cannot find symbol（demo-charge 实证）。
         //    已存在的 paths 节点本身就是 append 语义（同列表追加 path），无需补属性。
         Element paths = child(configuration, "annotationProcessorPaths");
         if (paths == null) {

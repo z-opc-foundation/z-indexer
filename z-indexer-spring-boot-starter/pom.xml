@@ -3,91 +3,92 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>io.github.yuku123</groupId>
-    <artifactId>z-indexer-spring-boot-starter</artifactId>
-    <version>1.0.0</version>
 
-    
+    <!-- 直接继承 z-indexer 顶层（reversion 机制根） -->
+    <parent>
+        <groupId>io.github.yuku123</groupId>
+        <artifactId>z-indexer</artifactId>
+        <version>${revision}</version>
+    </parent>
 
     <artifactId>z-indexer-spring-boot-starter</artifactId>
     <packaging>jar</packaging>
 
     <name>z-indexer-spring-boot-starter</name>
-    <description>索引服务 Spring Boot 启动 + 查询/管理/监控 REST API</description>
+    <description>z-indexer Spring Boot starter - REST API + 装配 + 调度</description>
+
+    <properties>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <java.version>8</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
 
     <dependencies>
-        <!-- indexer-core -->
+        <!-- z-indexer-core -->
         <dependency>
             <groupId>io.github.yuku123</groupId>
-        <artifactId>z-indexer-core</artifactId>
-        <version>${project.version}</version>
+            <artifactId>z-indexer-core</artifactId>
         </dependency>
 
-        <!-- c2f 配置中心（读 bootstrap.yaml 中 c2f.application.name → 设 context-path） -->
+        <!-- z-boot 聚合 starter: 一行 import 集成 z-config 配置中心 + 客户端 -->
         <dependency>
             <groupId>io.github.yuku123</groupId>
-        <artifactId>z-boot-dependencies</artifactId>
-        <version>1.0.3</version>
-        <type>pom</type>
-        <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.github.yuku123</groupId>
-        <artifactId>z-boot-config-starter</artifactId>
+            <artifactId>z-boot-config-starter</artifactId>
         </dependency>
 
-        <!-- c2f Spring Boot Web（REST + slf4j） -->
+        <!-- z-boot 聚合 starter: z-gw 网关客户端（提供 z-opc 内部 HTTP 调用能力） -->
         <dependency>
             <groupId>io.github.yuku123</groupId>
-        <artifactId>z-boot-web-starter</artifactId>
+            <artifactId>z-boot-gw-starter</artifactId>
         </dependency>
 
-        <!-- c2f 缓存（Redis）：CacheEnvironmentPostProcessor 把 c2f.application.cache.* 翻译成 spring.redis.*，
-             附带 data-redis(lettuce+pool) 与 redisson（默认启用）；版本与 exclusions 由 c2f-boot BOM 管理 -->
+        <!-- z-boot 聚合 starter: z-cache Redis 客户端 -->
         <dependency>
             <groupId>io.github.yuku123</groupId>
-        <artifactId>z-boot-cache-starter</artifactId>
+            <artifactId>z-boot-cache-starter</artifactId>
         </dependency>
 
-        <!-- Actuator（健康检查 + metrics） -->
+        <!-- Spring Boot Web (REST) - 通过 z-boot-integration-starters BOM 提供版本 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Actuator -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
-            <version>2.7.18</version>
         </dependency>
 
-        <!-- JSON -->
+        <!-- Redis 客户端 (RedisProbeController 用 StringRedisTemplate) -->
         <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>fastjson</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
 
-        <!-- 测试 -->
+        <!-- JSON: 走 z-util-parser-json (与 z-indexer-core 同源，避免重复声明 fastjson) -->
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-util-parser-json</artifactId>
+        </dependency>
+
+        <!-- Test -->
         <dependency>
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
-            <version>6.14.3</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
-        <finalName>galaxy-indexer</finalName>
+        <finalName>z-indexer-spring-boot-starter</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.c2f.galaxy.future.team.indexer.IndexerApplication</mainClass>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
-                    <proc>none</proc>
+                    <mainClass>com.zifang.z.indexer.IndexerApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

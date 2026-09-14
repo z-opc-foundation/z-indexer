@@ -1,7 +1,7 @@
 package com.zifang.z.indexer.controller;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.zifang.util.json.JsonUtil;
+import com.zifang.util.json.model.JsonObject;
 import com.zifang.z.indexer.pipeline.GitOps;
 import com.zifang.z.indexer.pipeline.IndexBuildService;
 import com.zifang.z.indexer.query.IndexQueryService;
@@ -322,7 +322,7 @@ public class IndexAdminController {
 
         // meta（与 buildOne 同 schema）
         long finishedAt = System.currentTimeMillis();
-        JSONObject meta = new JSONObject(true);
+        JsonObject meta = new JsonObject();
         meta.put("repoCode", repoCode);
         meta.put("gitUrl", repo.getGitUrl());
         meta.put("ref", resolvedRef);
@@ -332,7 +332,7 @@ public class IndexAdminController {
         meta.put("lines", lines);
         meta.put("indexType", "STATIC");
         meta.put("sha256", actualSha256);
-        writeTextFile(buildService.metaFile(repoCode), JSON.toJSONString(meta, true) + "\n");
+        writeTextFile(buildService.metaFile(repoCode), JsonUtil.toJson(meta) + "\n");
 
         // status 对齐 SUCCESS（lastIndexedCommit=远端 HEAD → poll 无变更跳过）
         repo.setLastIndexedCommit(remote.getSha());
@@ -547,7 +547,7 @@ public class IndexAdminController {
         }
         // meta（与 buildOne 同 schema，与单次 upload 一致含 sha256）
         long finishedAt = System.currentTimeMillis();
-        JSONObject meta = new JSONObject(true);
+        JsonObject meta = new JsonObject();
         meta.put("repoCode", repoCode);
         meta.put("gitUrl", repo.getGitUrl());
         meta.put("ref", resolvedRef);
@@ -557,7 +557,7 @@ public class IndexAdminController {
         meta.put("lines", lines);
         meta.put("indexType", "STATIC");
         meta.put("sha256", actualSha256);
-        writeTextFile(buildService.metaFile(repoCode), JSON.toJSONString(meta, true) + "\n");
+        writeTextFile(buildService.metaFile(repoCode), JsonUtil.toJson(meta) + "\n");
         // status 对齐 SUCCESS（lastIndexedCommit=远端 HEAD → poll 无变更跳过）
         repo.setLastIndexedCommit(remote.getSha());
         repo.setLastIndexedRef(resolvedRef);

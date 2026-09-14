@@ -1,8 +1,8 @@
 package com.zifang.z.indexer.registry;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONArray;
-import com.alibaba.fastjson.JSONObject;
+import com.zifang.util.json.JsonUtil;
+import com.zifang.util.json.model.JsonArray;
+import com.zifang.util.json.model.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,11 +68,11 @@ public class RegistryStore {
         try {
             if (registryFile.exists()) {
                 String content = readAll(registryFile);
-                JSONObject root = JSON.parseObject(content);
-                JSONArray arr = root.getJSONArray("repos");
+                JsonObject root = JsonUtil.parseObject(content);
+                JsonArray arr = root.getJsonArray("repos");
                 if (arr != null) {
                     for (int i = 0; i < arr.size(); i++) {
-                        IndexRepo repo = arr.getObject(i, IndexRepo.class);
+                        IndexRepo repo = JsonUtil.fromJson(arr.get(i).toString(), IndexRepo.class);
                         if (repo != null && repo.getRepoCode() != null) {
                             repos.put(repo.getRepoCode(), repo);
                         }
@@ -95,7 +95,7 @@ public class RegistryStore {
                             continue;
                         }
                         try {
-                            BuildLogEntry entry = JSON.parseObject(line, BuildLogEntry.class);
+                            BuildLogEntry entry = JsonUtil.fromJson(line, BuildLogEntry.class);
                             if (entry != null) {
                                 offerRing(entry);
                             }
@@ -202,15 +202,17 @@ public class RegistryStore {
                     parent.mkdirs();
                 }
                 File tmp = new File(registryFile.getParentFile(), registryFile.getName() + ".tmp");
-                JSONObject root = new JSONObject(true);
+                JsonObject root = new JsonObject();
                 root.put("schemaVersion", 1);
-                JSONArray arr = new JSONArray();
-                arr.addAll(repos.values());
+                JsonArray arr = new JsonArray();
+                for (IndexRepo r : repos.values()) {
+                    arr.add(r);
+                }
                 root.put("repos", arr);
                 BufferedWriter writer = new BufferedWriter(
                         new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8));
                 try {
-                    writer.write(JSON.toJSONString(root, true));
+                    writer.write(JsonUtil.toJson(root));
                 } finally {
                     writer.close();
                 }
@@ -239,7 +241,7 @@ public class RegistryStore {
                 BufferedWriter writer = new BufferedWriter(
                         new OutputStreamWriter(new FileOutputStream(tmp), StandardCharsets.UTF_8));
                 try {
-                    writer.write(JSON.toJSONString(repo));
+                    writer.write(JsonUtil.toJson(repo));
                 } finally {
                     writer.close();
                 }
@@ -280,7 +282,7 @@ public class RegistryStore {
                 continue;
             }
             try {
-                IndexRepo snap = JSON.parseObject(readAll(f), IndexRepo.class);
+                IndexRepo snap = JsonUtil.fromJson(readAll(f), IndexRepo.class);
                 if (snap != null) {
                     copyBuildStatus(snap, local);
                     statusStamps.put(code, stamp);
@@ -335,7 +337,7 @@ public class RegistryStore {
                 BufferedWriter writer = new BufferedWriter(
                         new OutputStreamWriter(new FileOutputStream(buildLogFile, true), StandardCharsets.UTF_8));
                 try {
-                    writer.write(JSON.toJSONString(entry));
+                    writer.write(JsonUtil.toJson(entry));
                     writer.write("\n");
                 } finally {
                     writer.close();

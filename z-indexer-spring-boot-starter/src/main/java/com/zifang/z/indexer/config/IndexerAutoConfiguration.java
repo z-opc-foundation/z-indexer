@@ -214,8 +214,8 @@ public class IndexerAutoConfiguration {
     }
 
     /** 定时轮询（fixedDelay 保证上一轮跑完再计时，构建慢时自动顺延）。 */
-    @Scheduled(initialDelayString = "${future-team.indexer.poll-initial-delay-ms:60000}",
-            fixedDelayString = "${future-team.indexer.poll-interval-ms:600000}")
+    @Scheduled(initialDelayString = "${z-indexer.indexer.poll-initial-delay-ms:60000}",
+            fixedDelayString = "${z-indexer.indexer.poll-interval-ms:600000}")
     public void scheduledPoll() {
         IndexerProperties props = indexerProperties;
         if (props == null || !props.isEnabled()) {

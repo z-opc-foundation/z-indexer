@@ -1,7 +1,7 @@
 package com.zifang.z.indexer.query;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.zifang.util.json.JsonUtil;
+import com.zifang.util.json.model.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -118,7 +118,7 @@ public class RepoIndex {
         if (metaFile.exists()) {
             try {
                 String meta = readAll(metaFile);
-                JSONObject obj = JSON.parseObject(meta);
+                JsonObject obj = JsonUtil.parseObject(meta);
                 indexedCommit = obj.getString("commit");
                 indexedRef = obj.getString("ref");
                 String t = obj.getString("indexType");
@@ -144,17 +144,18 @@ public class RepoIndex {
                         if (line.isEmpty()) {
                             continue;
                         }
-                        JSONObject obj;
+                        JsonObject obj;
                         try {
-                            obj = JSON.parseObject(line);
+                            obj = JsonUtil.parseObject(line);
                         } catch (Exception ignore) {
                             continue;
                         }
                         String t = obj.getString("t");
                         if ("def".equals(t)) {
                             String sym = pool.canon(obj.getString("sym"));
+                            Integer lineVal = obj.getInt("line");
                             Def def = new Def(pool.canon(obj.getString("kind")), sym,
-                                    pool.canon(obj.getString("file")), obj.getIntValue("line"));
+                                    pool.canon(obj.getString("file")), lineVal == null ? 0 : lineVal);
                             List<Def> defs = symbolDefs.get(sym);
                             if (defs == null) {
                                 defs = new ArrayList<Def>(1);
@@ -165,8 +166,9 @@ public class RepoIndex {
                         } else if ("call".equals(t)) {
                             String from = pool.canon(obj.getString("from"));
                             String to = pool.canon(obj.getString("to"));
+                            Integer lineVal = obj.getInt("line");
                             Call call = new Call(from, to,
-                                    pool.canon(obj.getString("file")), obj.getIntValue("line"));
+                                    pool.canon(obj.getString("file")), lineVal == null ? 0 : lineVal);
                             List<Call> in = incoming.get(to);
                             if (in == null) {
                                 in = new ArrayList<Call>(4);

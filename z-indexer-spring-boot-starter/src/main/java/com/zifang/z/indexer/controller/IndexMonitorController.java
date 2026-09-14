@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 索引服务监控 REST API（给 future-team 巡检 / 监控消费）。
+ * 索引服务监控 REST API（给 z-indexer 巡检 / 监控消费）。
  * <p>统一返回 {@code {"ok": true/false, ...}}。
  */
 @RestController

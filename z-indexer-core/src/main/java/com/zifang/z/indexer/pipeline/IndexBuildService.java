@@ -1,7 +1,7 @@
 package com.zifang.z.indexer.pipeline;
 
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.zifang.util.json.JsonUtil;
+import com.zifang.util.json.model.JsonObject;
 import com.zifang.z.indexer.IndexerConfig;
 import com.zifang.z.indexer.query.IndexQueryService;
 import com.zifang.z.indexer.registry.BuildLogEntry;
@@ -526,7 +526,7 @@ public class IndexBuildService {
                 }
             }
             long finishedAt = System.currentTimeMillis();
-            JSONObject meta = new JSONObject(true);
+            JsonObject meta = new JsonObject();
             meta.put("repoCode", repoCode);
             meta.put("gitUrl", repo.getGitUrl());
             meta.put("ref", resolvedRef);
@@ -537,7 +537,7 @@ public class IndexBuildService {
             meta.put("indexType", indexType);
             // 编译附带对照信息（仅 java 双轮模式；前端仓/纯编译模式无此节）
             if (compiledStatus != null) {
-                JSONObject cm = new JSONObject(true);
+                JsonObject cm = new JsonObject();
                 cm.put("status", compiledStatus);
                 if ("SUCCESS".equals(compiledStatus)) {
                     cm.put("lines", repo.getLastCompiledLines());
@@ -547,7 +547,7 @@ public class IndexBuildService {
                 }
                 meta.put("compiled", cm);
             }
-            writeText(metaFile(repoCode), JSON.toJSONString(meta, true) + "\n");
+            writeText(metaFile(repoCode), JsonUtil.toJson(meta) + "\n");
 
             // 还原 pom 注入（编译轮在 sidecar 内已还原；此处幂等兜底；前端链路无注入无副作用）
             if (javaRepo) {
@@ -702,8 +702,8 @@ public class IndexBuildService {
         cmd.add("clean");
         cmd.add("compile");
         cmd.add("-B");
-        // -U 强刷 SNAPSHOT/失败缓存：首次解析失败的 SNAPSHOT（如 c2f-boot-dependencies）
-        // 会被 Maven 本地仓库缓存 24h 不再重试，必须 -U 才能恢复（hbos-gw 实证 exit=1）
+        // -U 强刷 SNAPSHOT/失败缓存
+        // 会被 Maven 本地仓库缓存
         cmd.add("-U");
         cmd.add("-DskipTests");
         cmd.add("-Dmaven.test.skip=true");

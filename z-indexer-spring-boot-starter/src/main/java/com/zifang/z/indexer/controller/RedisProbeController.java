@@ -12,8 +12,8 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Redis 连通性探针（0902 c2f-boot-starter-cache 接入验证）。
- * <p>配置走 c2f.application.cache.*（CacheEnvironmentPostProcessor 翻译成 spring.redis.*，
+ * Redis 连通性探针（0902 z-boot-cache-starter 接入验证）。
+ * <p>配置走 spring.redis.*（CacheEnvironmentPostProcessor 翻译成 spring.redis.*，
  * lettuce 连接池 + redisson 默认启用）。本端点 SET→GET→DEL 一个带 TTL 的测试键，
  * 一次 curl 看清链路是否通、由哪个实现承接（多副本共享/边数据外置的前置验证）。
  */
@@ -34,7 +34,7 @@ public class RedisProbeController {
         Map<String, Object> resp = new LinkedHashMap<String, Object>();
         if (stringRedisTemplate == null) {
             resp.put("ok", false);
-            resp.put("error", "StringRedisTemplate 未装配（c2f-boot-starter-cache 未生效或配置缺失）");
+            resp.put("error", "StringRedisTemplate 未装配（z-boot-cache-starter 未生效或配置缺失）");
             return resp;
         }
         resp.put("templateClass", stringRedisTemplate.getClass().getName());

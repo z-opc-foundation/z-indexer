@@ -1,8 +1,8 @@
 package com.zifang.z.indexer;
 
 import com.zifang.z.indexer.pipeline.IndexBuildService;
-import com.alibaba.fastjson.JSON;
-import com.alibaba.fastjson.JSONObject;
+import com.zifang.util.json.JsonUtil;
+import com.zifang.util.json.model.JsonObject;
 import com.zifang.z.indexer.query.IndexQueryService;
 import com.zifang.z.indexer.query.RepoIndex;
 import com.zifang.z.indexer.registry.BuildLockManager;
@@ -272,11 +272,11 @@ public class IndexerE2eTest {
         Map<String, Object> goodChain = query.callers("good-repo", "demo.PriceCalculator#calcPrice(double)", 2, true);
         Assert.assertNull(goodChain.get("error"));
         Assert.assertEquals(goodChain.get("indexType"), "STATIC", "链查询透出 STATIC");
-        JSONObject goodMeta = JSON.parseObject(readFile(
-                new File(cfg.getReposRoot(), "indexer/good-repo.meta.json")));
-        Assert.assertEquals(goodMeta.getJSONObject("compiled").getString("status"), "SUCCESS",
+        JsonObject goodMeta = JsonUtil.fromJson(readFile(
+                new File(cfg.getReposRoot(), "indexer/good-repo.meta.json")), JsonObject.class);
+        Assert.assertEquals(goodMeta.getJsonObject("compiled").getString("status"), "SUCCESS",
                 "meta compiled 节透出 SUCCESS");
-        Assert.assertTrue(goodMeta.getJSONObject("compiled").getLongValue("lines") > 0,
+        Assert.assertTrue(goodMeta.getJsonObject("compiled").getLong("lines") > 0,
                 "meta compiled 节透出行数");
 
         // ── ② 坏 pom 仓：编译不行 → 落到静态 ──
@@ -299,12 +299,12 @@ public class IndexerE2eTest {
         Assert.assertTrue(bad.getLastCompiledError() != null && !bad.getLastCompiledError().isEmpty(),
                 "编译失败摘要：" + bad.getLastCompiledError());
         Assert.assertTrue(new File(cfg.getReposRoot(), "indexer/bad-repo.jsonl").exists(), "静态 jsonl 产出");
-        JSONObject badMeta = JSON.parseObject(readFile(
-                new File(cfg.getReposRoot(), "indexer/bad-repo.meta.json")));
+        JsonObject badMeta = JsonUtil.fromJson(readFile(
+                new File(cfg.getReposRoot(), "indexer/bad-repo.meta.json")), JsonObject.class);
         Assert.assertEquals(badMeta.getString("indexType"), "STATIC", "meta 透出 STATIC");
-        Assert.assertEquals(badMeta.getJSONObject("compiled").getString("status"), "FAILED",
+        Assert.assertEquals(badMeta.getJsonObject("compiled").getString("status"), "FAILED",
                 "meta compiled 节透出 FAILED");
-        Assert.assertTrue(badMeta.getJSONObject("compiled").containsKey("error"),
+        Assert.assertTrue(badMeta.getJsonObject("compiled").containsKey("error"),
                 "meta compiled 节透出失败摘要");
 
         // 静态索引可查询（查询端零改动）
@@ -334,10 +334,10 @@ public class IndexerE2eTest {
         Assert.assertNull(upgraded.getLastCompiledError(), "编译恢复后失败摘要清空");
         Assert.assertTrue(new File(cfg.getReposRoot(), "indexer/bad-repo.compiled.jsonl").exists(),
                 "compiled.jsonl 补齐");
-        JSONObject upgradedMeta = JSON.parseObject(readFile(
-                new File(cfg.getReposRoot(), "indexer/bad-repo.meta.json")));
+        JsonObject upgradedMeta = JsonUtil.fromJson(readFile(
+                new File(cfg.getReposRoot(), "indexer/bad-repo.meta.json")), JsonObject.class);
         Assert.assertEquals(upgradedMeta.getString("indexType"), "STATIC");
-        Assert.assertEquals(upgradedMeta.getJSONObject("compiled").getString("status"), "SUCCESS");
+        Assert.assertEquals(upgradedMeta.getJsonObject("compiled").getString("status"), "SUCCESS");
 
         // ── ④ 开关关闭：坏仓不兜底，维持 FAILED（kill-switch）──
         File noFallbackRepo = new File(work, "nofb-repo-src");

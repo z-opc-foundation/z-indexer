@@ -1,8 +1,8 @@
-# c2f-boot 框架要求 bootstrap.yaml 配置应用名（决定 context-path）
+# z-opc-boot 框架要求 bootstrap.yaml 配置应用名（决定 context-path）
 # 不设则 context-path 为 /unknown，Kong 网关路由 404
-c2f:
+z-opc:
   application:
-    name: future-team-indexer
+    name: z-indexer-indexer
   extension:
     datasource:
       route:
