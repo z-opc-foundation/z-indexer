@@ -20,17 +20,9 @@
     <name>z-indexer-core</name>
     <description>索引核心：仓库注册表 + git 变更检测 + pom 注入 + 构建管线 + 内存倒排查询</description>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>io.github.yuku123</groupId>
-                <artifactId>z-indexer</artifactId>
-                <version>${revision}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+    <!-- 迁移前这里 import 过 io.github.yuku123:z-indexer:${revision} 当 BOM —— 那正是本模块的
+         <parent>，同一份 DM 已经继承到手；重复 import 只是多一处悬空点（且 ${revision} 只能靠
+         reactor 解析，本仓还没发到 repo1）。整块删掉，实测 tree 零漂移。 -->
 
     <dependencies>
         <!-- JSON 序列化（注册表 / 索引行 / 构建日志），统一走 z-util-parser-json -->

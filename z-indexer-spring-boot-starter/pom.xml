@@ -17,12 +17,9 @@
     <name>z-indexer-spring-boot-starter</name>
     <description>z-indexer Spring Boot starter - REST API + 装配 + 调度</description>
 
-    <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-        <java.version>8</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
+    <!-- 这里原来重复定义了 maven.compiler.source/target=8、java.version=8、
+         project.build.sourceEncoding=UTF-8：与父链（z-boot-parent）面值相同（java.version 那格
+         父链是 1.8，javac 里同义），删掉后由 parent 下发，实测进 javac 的仍是 8。 -->
 
     <dependencies>
         <!-- z-indexer-core -->
@@ -87,6 +84,11 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <!-- 迁移前这条**没有版本可拿**（根 pom 的 pluginManagement 不含它，写在
+                     <dependencyManagement> 里的那条对插件无效）：基线实测 Maven 去取
+                     spring-boot-maven-plugin/maven-metadata.xml 并用 latest = 4.2.0-M2。
+                     现在版本由父链的 pluginManagement 供（spring-boot.version=2.7.18）。
+                     本模块没有 <executions>，所以两侧都不会跑 repackage。 -->
                 <configuration>
                     <mainClass>com.zifang.z.indexer.IndexerApplication</mainClass>
                 </configuration>
