@@ -35,7 +35,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- z-opc-foundation 生态版本 -->
-        <z-boot.version>1.0.16</z-boot.version>
+        <z-boot.version>1.0.17</z-boot.version>
         <util.version>1.0.10</util.version>
 
         <!-- 第三方依赖版本 -->
