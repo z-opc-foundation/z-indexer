@@ -36,7 +36,7 @@
 
         <!-- z-opc-foundation 生态版本 -->
         <z-boot.version>1.0.17</z-boot.version>
-        <util.version>1.0.10</util.version>
+        <util.version>1.0.13</util.version>
 
         <!-- 第三方依赖版本 -->
         <spring-boot.version>2.7.18</spring-boot.version>
