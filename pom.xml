@@ -42,9 +42,22 @@
         <spring-boot.version>2.7.18</spring-boot.version>
         <slf4j.version>2.0.13</slf4j.version>
         <log4j2.version>2.25.4</log4j2.version>
-        <jgit.version>6.10.0.202406032230-r</jgit.version>
+        <!--
+            JGit 6.x 基线为 Java 11（class 55），JDK 8 下 javac 直接 bad class file。
+            5.13.x 是最后支持 Java 8 的 LTS 分支，但分支内并非都可用：
+              5.13.4.202507202350-r  manifest Build-Jdk-Spec=17，字节码里带 Java 9+ 的
+              nio 协变引用（ByteBuffer.mark()/reset()/flip()/position(I) 返回 ByteBuffer），
+              JDK 8 编译能过、运行期 NoSuchMethodError（实测 RawParseUtils.decodeNoFallback）。
+              5.13.3.202401111512-r  Build-Jdk-Spec=1.8，同类引用全是 Java 8 签名（返回 Buffer），
+              故取 5.13.3 —— 最后一条真正用 JDK 8 构建的 JGit 版本线。
+        -->
+        <jgit.version>5.13.3.202401111512-r</jgit.version>
         <javaparser.version>3.26.4</javaparser.version>
-        <testng.version>7.10.2</testng.version>
+        <!--
+            TestNG 7.6 起基线抬到 Java 11（class 55），JDK 8 下 test 源码无法编译。
+            7.5.1 是最后一条 Java 8 版本线（class 52，已实测）。
+        -->
+        <testng.version>7.5.1</testng.version>
 
         <!-- Maven 插件版本 -->
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
