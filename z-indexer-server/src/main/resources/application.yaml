@@ -1,7 +1,6 @@
 #
 z:
   indexer:
-  indexer:
     enabled: true
     # repos 根目录：其下有 repos/（git 工作副本）、indexer/（索引产物）、bin/（内置 maven/工具链）。
     #
