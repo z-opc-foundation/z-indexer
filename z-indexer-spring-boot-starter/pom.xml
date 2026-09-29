@@ -80,19 +80,10 @@
 
     <build>
         <finalName>z-indexer-spring-boot-starter</finalName>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <!-- 迁移前这条**没有版本可拿**（根 pom 的 pluginManagement 不含它，写在
-                     <dependencyManagement> 里的那条对插件无效）：基线实测 Maven 去取
-                     spring-boot-maven-plugin/maven-metadata.xml 并用 latest = 4.2.0-M2。
-                     现在版本由父链的 pluginManagement 供（spring-boot.version=2.7.18）。
-                     本模块没有 <executions>，所以两侧都不会跑 repackage。 -->
-                <configuration>
-                    <mainClass>com.zifang.z.indexer.IndexerApplication</mainClass>
-                </configuration>
-            </plugin>
-        </plugins>
+        <!-- 这里原来声明过 spring-boot-maven-plugin + <mainClass>IndexerApplication</mainClass>：
+             那枚主类属于**进程**，不属于库，2026-09-29 随 IndexerApplication / application.yaml /
+             bootstrap.yaml / bin/ 一起搬到 z-indexer-server（见那里的注释：这条搬运把发布 jar 从
+             49MB 打回库该有的大小，也把 classpath:/application.yaml 这个"库替消费者定配置"的口子
+             关掉）。本模块没有 <executions>，两侧都不会跑 repackage —— 现在连那条误导性的声明也没了。 -->
     </build>
 </project>

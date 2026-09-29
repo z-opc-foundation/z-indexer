@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.yuku123</groupId>
+        <artifactId>z-indexer</artifactId>
+        <version>${revision}</version>
+    </parent>
+
+    <artifactId>z-indexer-server</artifactId>
+    <packaging>jar</packaging>
+
+    <name>z-indexer-server</name>
+    <description>z-indexer 可执行进程 — Spring Boot fat jar：装配 starter + 服务配置 + 内置工具链</description>
+
+    <!--
+        本模块**不发**到 Maven Central，四特性审计（2026-09-29）缺陷 7 的修法就是把两种形状拆开：
+        以前 z-indexer-spring-boot-starter 一个模块同时是"给别人 import 的库"和"自己跑的进程"，
+        于是发布出去的那枚 jar 现测 49,222,215 字节，里面装着
+          · bin/tools.jar 18,362,894 + bin/node-bin.zip 35,089,148 + bin/apache-maven-3.8.8-bin.zip
+            8,376,105 + bin/babel-parser.zip + bin/code-indexer.jar —— 是**部署期才用的外部工具链**，
+            还把别人家的运行时（Maven/Node/JDK tools）打进我们 MIT 声明的构件里；
+          · application.yaml / bootstrap.yaml —— Spring Boot 会读 classpath:/application.yaml 作为
+            配置源，库把它带进消费者 classpath 等于替消费者决定 repos-root/Redis 连接池/actuator 暴露面。
+        现在这两样都住在这里（进程的形状），starter 退回纯库。
+        真正生效的拦截在根 pom central profile 的 <excludeArtifacts>：central-publishing 0.7.0
+        **不看** maven.deploy.skip（z-msg 1.1.0 实测把 z-msg-example 整个打进 bundle），
+        下面这条只为止住普通 maven-deploy-plugin 往别的仓库发。
+    -->
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <start-class>com.zifang.z.indexer.IndexerApplication</start-class>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.yuku123</groupId>
+            <artifactId>z-indexer-spring-boot-starter</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 交付物是一个进程，必须是 fat jar：少了 repackage，package 出来的是普通 jar
+                 （没有 Main-Class，`java -jar` 报"没有主清单属性"），而单测跑在 package 之前 ——
+                 没有任何测试会因为它不在而红，只有真起一次才量得到（同 z-mcp-server 的记录）。
+                 版本由父链的 pluginManagement 下发（spring-boot.version=2.7.18）。 -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <mainClass>${start-class}</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -14,8 +14,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.io.File;
@@ -25,9 +27,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * 索引服务装配：core 组件（注册表/构建/查询/调度）以 @Bean 显式接线，
  * 调度由本类内 @Scheduled 方法驱动（fixedDelay 配置化）。
+ * <p>
+ * 本类由 {@code META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports}
+ * 注册（2026-09-29 补：此前 starter 里**没有任何注册文件**，装配全靠 z-indexer-server 那个
+ * {@code @SpringBootApplication} 顺手扫包 ⇒ "引入即生效"对仓库外的消费者从来是不成立的，
+ * 而 starter 恰恰是发给外面用的那一面）。
+ * <p>
+ * {@code @ComponentScan} 带出 REST 面（查询/注册/监控三个 controller）—— 服务是给人调的，
+ * 只装 service bean 不给端点等于没装配。形状照 z-mist 的
+ * {@code MistWebAutoConfiguration}（同为"供宿主 embed"的 starter：@ComponentScan controllers
+ * + @EnableScheduling）。controller 不受 {@code z.indexer.enabled} 影响：那格的口径是
+ * "false 时轮询停止、查询接口仍可用已有索引"（见 {@link IndexerProperties#isEnabled()}），
+ * 开关只掐上面那个 @Scheduled。
  */
 @Configuration
 @EnableConfigurationProperties(IndexerProperties.class)
+@ComponentScan(basePackages = "com.zifang.z.indexer.controller")
+@EnableScheduling
 public class IndexerAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(IndexerAutoConfiguration.class);

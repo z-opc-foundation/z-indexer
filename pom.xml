@@ -22,10 +22,46 @@
 
     <name>z-indexer</name>
     <description>代码索引服务：仓库注册表 + 定时轮询重建索引 + 符号/调用链查询 + 监控</description>
+    <!-- 中央发布对元数据是**硬门**，不是装饰：z-boot/README.md 步骤 13 实测「一个 component 的 pom
+         缺 <name> 或 DM 里有不带版本的条目，中央把整批判 FAILED」。url/licenses/scm/developers
+         四块照 z-mcp/z-agent 的形状写（同 org 的三个已发布件），scm 指向本仓真实 remote
+         （git remote 现读 git@github.com:z-opc-foundation/z-indexer.git）。flatten oss 会把它们
+         逐件抄进每个子模块的发布 pom，所以只写在这一处。 -->
+    <url>https://github.com/z-opc-foundation/z-indexer</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <id>yuku123</id>
+            <name>yuku123</name>
+            <email>1340947819@qq.com</email>
+            <organization>z-team</organization>
+            <organizationUrl>https://github.com/yuku123</organizationUrl>
+            <timezone>+08:00</timezone>
+            <roles>
+                <role>owner</role>
+            </roles>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:https://github.com/z-opc-foundation/z-indexer.git</connection>
+        <developerConnection>scm:ssh:git@github.com/z-opc-foundation/z-indexer.git</developerConnection>
+        <url>https://github.com/z-opc-foundation/z-indexer</url>
+        <tag>HEAD</tag>
+    </scm>
 
     <modules>
         <module>z-indexer-core</module>
         <module>z-indexer-spring-boot-starter</module>
+        <!-- 可执行进程（fat jar）：只在 central profile 的 <excludeArtifacts> 白名单里被挡掉，
+             永不进中央 —— 形状照 z-mcp 的 z-mcp-server / z-kb 的 z-kb-bootstrap。 -->
+        <module>z-indexer-server</module>
     </modules>
 
     <!--
@@ -67,11 +103,13 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- 自家 3 个 reactor 坐标钉 ${project.version}（README「消费模型」步骤 4）。不是装饰：
+            <!-- 自家 4 个 reactor 坐标钉 ${project.version}（README「消费模型」步骤 4）。不是装饰：
                  继承来的 DM 会改写**传递依赖**版本，而 fleet 里的格子钉的是 repo1 上的已发布件 ⇒
                  抬 revision 后不补这一格，旧发布件的字节码就能被当 sibling 编进新包。现读
                  z-boot-fleet:1.0.0 里没有任何 z-indexer 格（本仓尚未对外发布），所以补上今天
-                 顶不出差别，它是"自家坐标绝不外引"的登记位。 -->
+                 顶不出差别，它是"自家坐标绝不外引"的登记位。
+                 z-indexer-server 永不发布（central profile 的 excludeArtifacts 挡它），登记它只为让
+                 "自家坐标一律 ${project.version}"不再有例外（同 z-ctc 对 z-ctc-admin 的处理）。 -->
             <dependency>
                 <groupId>io.github.yuku123</groupId>
                 <artifactId>z-indexer</artifactId>
@@ -86,6 +124,11 @@
             <dependency>
                 <groupId>io.github.yuku123</groupId>
                 <artifactId>z-indexer-spring-boot-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.yuku123</groupId>
+                <artifactId>z-indexer-server</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -117,6 +160,30 @@
                 <!-- 父链不供这一格（spring-boot-dependencies 2.7.18 也没有 testng.version），
                      删键当场悬空。 -->
                 <version>${testng.version}</version>
+            </dependency>
+
+            <!-- io.prometheus:simpleclient(-common) 0.16.0 —— 本仓启动实测逼出来的两格，不是装饰：
+                 z-boot-gw-starter 带进 micrometer-registry-prometheus:1.9.17，而 1.9.17 的
+                 PrometheusMeterRegistry 有字段/构造参数是 io.prometheus.client.exemplars.ExemplarSampler
+                 （javap 实测），这个包 simpleclient 从 0.15.0 起才有。地板 z-boot-dependencies 却按
+                 坐标**直接**钉了 0.8.1（现读 1.0.19 发布件 pom:625-627），于是 tree 实测
+                 micrometer-registry-prometheus:1.9.17 → simpleclient_common:0.15.0 → simpleclient:0.8.1，
+                 编译期毫无怨言，启动才炸：
+                   Error processing condition on PrometheusMetricsExportAutoConfiguration.prometheusMeterRegistry
+                   Caused by: NoClassDefFoundError: io/prometheus/client/exemplars/ExemplarSampler
+                 （2026-09-29 用 z-indexer-server 的 fat jar 在 corretto-1.8 上实测）。
+                 同一个坑 z-gw/pom.xml:160-174、z-opc/pom.xml:1374-1396 各自压回 0.16.0，本仓照抄同一格。
+                 ⚠ 根修在地板（删掉那格 0.8.1 直接条目，让 micrometer 自己的 pom 说话），
+                 但抬地板会连带 parent/24 个 starter 重发 ⇒ 归 1.0.20 批次待裁，先按既有姿势本地压。 -->
+            <dependency>
+                <groupId>io.prometheus</groupId>
+                <artifactId>simpleclient</artifactId>
+                <version>0.16.0</version>
+            </dependency>
+            <dependency>
+                <groupId>io.prometheus</groupId>
+                <artifactId>simpleclient_common</artifactId>
+                <version>0.16.0</version>
             </dependency>
 
             <!-- 迁移删掉的 DM 条目（逐条对过 preflight 第 2/5 节，判"供不供"按坐标不按键名）：
@@ -159,16 +226,26 @@
         <plugins>
             <!-- flatten：本仓自己常开。z-boot-parent 那条 flatten 是 <inherited>false</inherited>
                  （z-boot-parent/pom.xml:255-266），**不会**下发插件声明 ⇒ 加了 <parent> 之后如果本仓
-                 不声明，发出去的 pom 就带着 org 的 parent 链而没人负责解释它。flattenMode 保持本仓
-                 原有的 resolveCiFriendliesOnly（它只解 ${revision}，本仓的 ${revision} 机制靠它）；
-                 中央上还没有本仓的任何形状可对照，所以不改模式、只把版本键交给父链（1.6.0→1.7.3）。 -->
+                 不声明，发出去的 pom 就带着 org 的 parent 链而没人负责解释它。
+
+                 flattenMode 由 resolveCiFriendliesOnly 改 oss（2026-09-29，四特性审计缺陷 3）：
+                 resolveCiFriendliesOnly 只解 ${revision}，发出去的 pom 仍然带着 z-boot-parent 这一
+                 <parent>、以及一批不带版本的 dependency ⇒ 消费者必须把我们的整条父链（parent、fleet、
+                 地板、Boot BOM）一路下载下来才解得出版本。链在中央上是通的，所以外部裸项目
+                 dependency:resolve 今天能过（实测 14 个已发布 starter 全 rc=0），但那是"靠链解释"，
+                 不是"自包含"：链上任一环读不到、或消费者自己的 DM 顶掉了其中一格，就当场悬空。
+                 oss 剥掉 parent、把继承来的版本逐格写成面值，并把根 pom 的
+                 name/description/url/licenses/scm/developers 注进每个子模块（本仓根 pom 有 name，
+                 两个子模块各有 name/description，中央校验器逐件看）。这正是 z-cache 的形状，也是
+                 CEO 口径「它的好，抄一下，然后所有项目都这么做」。z-agent/z-mcp/z-skill 同批改齐。 -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
                 <version>${flatten-maven-plugin.version}</version>
+                <inherited>true</inherited>
                 <configuration>
                     <updatePomFile>true</updatePomFile>
-                    <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    <flattenMode>oss</flattenMode>
                 </configuration>
                 <executions>
                     <execution>
@@ -189,4 +266,174 @@
             </plugin>
         </plugins>
     </build>
+
+    <!--
+        缺陷 7 的根因就在这一节**原本不存在**：本仓没有任何 central profile ⇒ 没有 distributionManagement、
+        没有 sources/javadoc/gpg、也没有 central-publishing-maven-plugin，`mvn deploy -P central` 里
+        -P 是个空开关，什么都不会发生。四特性审计（2026-09-29）实测 repo1 上 z-indexer 的根、core、
+        starter 三个 maven-metadata.xml 全 404，就是"从来没有发布通道"的结果，不是某一次发布失败。
+        下面三块逐字对齐 z-cache/pom.xml:197-363（全组织参考实现），只改了本仓需要的引用点。
+    -->
+    <profiles>
+        <profile>
+            <id>central</id>
+            <properties>
+                <!-- 真发 Central：javadoc 与签名都不跳过（dry-run 用下面的 central-dryrun） -->
+                <maven.javadoc.skip>false</maven.javadoc.skip>
+                <central.gpg.skip>false</central.gpg.skip>
+            </properties>
+            <distributionManagement>
+                <repository>
+                    <id>central</id>
+                    <url>https://central.sonatype.com</url>
+                </repository>
+                <snapshotRepository>
+                    <id>central</id>
+                    <url>https://central.sonatype.com</url>
+                </snapshotRepository>
+            </distributionManagement>
+            <build>
+                <plugins>
+                    <!-- 发布路径整条交给 central-publishing-maven-plugin：maven-deploy-plugin 的
+                         default-deploy 必须关掉，否则它会先往 snapshotRepository 推一份裸件。
+                         2026-09 实测：绕开插件直接 curl 打 /publisher/upload、/status 恒 500，
+                         中央发布**只有**这条路可走。 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-deploy-plugin</artifactId>
+                        <version>${maven-deploy-plugin.version}</version>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
+                    </plugin>
+
+                    <!-- sources.jar：Maven Central 强制要求 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.0</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- javadoc.jar 同样是硬要求；doclint=none 规避 Java 8+ 的 HTML5 校验 -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.11.2</version>
+                        <configuration>
+                            <doclint>none</doclint>
+                            <failOnError>false</failOnError>
+                            <failOnWarnings>false</failOnWarnings>
+                            <quiet>true</quiet>
+                            <!-- 属性由父链（z-boot-parent）下发；z-cache 那侧的原注释记录过：这里
+                                 曾经写 ${compile.version}（全仓无人定义），因为挂着 failOnError=false
+                                 它不炸构建，只让 -source 变成无效参数。别退回那个写法。 -->
+                            <source>${maven.compiler.source}</source>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <!-- GPG 签名：passphrase 只从环境变量 CENTRAL_GPG_PASSPHRASE 传入，绝不写进 pom -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <configuration>
+                            <skip>${central.gpg.skip}</skip>
+                            <!-- loopback + no-tty：无 gpg-agent / 无 tty 的构建机上也能签 -->
+                            <gpgArguments>
+                                <arg>--pinentry-mode</arg>
+                                <arg>loopback</arg>
+                                <arg>--no-tty</arg>
+                            </gpgArguments>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <tokenAuth>true</tokenAuth>
+                            <!-- autoPublish 必须是 true：缺席或 false 时 deployment 会停在 VALIDATED
+                                 等人去 Portal 点 Publish，而 Maven 这边照样打印 BUILD SUCCESS，
+                                 看起来"发成功了"其实中央上什么都没有（README 步骤 14）。 -->
+                            <autoPublish>true</autoPublish>
+                            <!-- z-indexer-server 是可执行进程（application.yaml + bin/ 里 59MB 内置
+                                 工具链），不是给人 import 的库，永不进中央。
+                                 ⚠ 拦它**不能**只靠模块里的 maven.deploy.skip：central-publishing 0.7.0
+                                 不看那个属性 —— z-msg 1.1.0 实测照样把 z-msg-example 的 24 个文件打进
+                                 bundle（见 z-msg-example/pom.xml:23-29 的记录）。excludeArtifacts 按
+                                 artifactId 精确匹配，才是真正生效的那道。 -->
+                            <excludeArtifacts>
+                                <excludeArtifact>z-indexer-server</excludeArtifact>
+                            </excludeArtifacts>
+                            <waitUntil>uploaded</waitUntil>
+                            <waitMaxTime>1800</waitMaxTime>
+                            <waitPollingInterval>10</waitPollingInterval>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- 本地演练：同一个发布形状，但跳过 javadoc 与签名，用来先验证 flatten/DM/元数据能不能过
+             中央校验，而不占用真版本号。 -->
+        <profile>
+            <id>central-dryrun</id>
+            <properties>
+                <maven.javadoc.skip>true</maven.javadoc.skip>
+                <central.gpg.skip>true</central.gpg.skip>
+            </properties>
+            <distributionManagement>
+                <repository>
+                    <id>central</id>
+                    <url>https://central.sonatype.com</url>
+                </repository>
+                <snapshotRepository>
+                    <id>central</id>
+                    <url>https://central.sonatype.com</url>
+                </snapshotRepository>
+            </distributionManagement>
+        </profile>
+
+        <!-- Java 8 底线的尺（抄 z-cache 的同名 profile）：source/target 8 在 JDK 9+ 上只是"看起来"过了，
+             javac 仍允许 Map.of / List.of 这类 Java 9 API，class 还是 52.0，问题要到真跑 Java 8 的机器
+             才炸。JDK 9+ 上用 release 8 让本地就编译失败；JDK 8 上本 profile 不激活。 -->
+        <profile>
+            <id>java8-floor-on-jdk9plus</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <properties>
+                <maven.compiler.release>8</maven.compiler.release>
+            </properties>
+        </profile>
+    </profiles>
 </project>
