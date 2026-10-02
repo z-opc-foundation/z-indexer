@@ -224,9 +224,9 @@ mvn test                                     # TestNG，surefire 版本走父链
 mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过）
 ```
 
-实测的测试资产（2026-10-02 本机 `mvn -B -o clean test`：**core 8 个 / starter 3 个，0 failures 0 errors，3 skipped**）：
+实测的测试资产（2026-10-02 本机 `mvn -B -o clean test`：**core 12 个 / starter 3 个，0 failures 0 errors，3 skipped**）：
 
-- `z-indexer-core`（6 类 8 法）：
+- `z-indexer-core`（7 类 12 法）：
   - `IndexerE2eTest`（3 个 `@Test`：`fullPipeline` / `dualTrackFallback` / `frontendPipeline`，真实 git +
     真实 mvn；默认 `SkipException` 跳过 → 上面那 3 个 skipped 就是它们，需 `-Dz.indexer.e2e=true` 且本机 mvn/git 可用）
   - `RepoIndexTest#loadDedupsRepeatedStringsAndKeepsSemantics`（`assertSame` 锁死字符串复用，防无声回退）
@@ -236,6 +236,9 @@ mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过
   - `ArtifactServiceTest#packsPureContentAndSkipsSymlinks`（制品 zip 纯内容 + 剔除名单 + 首条目是 meta、
     `meta.files/bytes` 与实际条目逐字节相符、`.tmp-*` 不残留）
   - `StaticJavaIndexerTest#symContractAndJoin`（轮 1 静态索引的 def/call 产出与符号拼接口径）
+  - `PomIndexerPatcherTest`（4 法：注入必带 `annotationProcessorPaths` + `-A` 参数；仓库本 pom 的
+    `<proc>none</proc>`——build/plugins 与 pluginManagement 两处——必须被剥掉，javac 的 `-proc:none`
+    优先于显式 processorpath，不剥则处理器整体静默不跑、构建零告警零产物；重复 patch 幂等且 `-A` 刷新）
 - `z-indexer-spring-boot-starter`：`IndexerAutoConfigurationSmokeTest`（3 个 `@Test`，用
   `AnnotationConfigApplicationContext` 在 `refresh()` 阶段暴露装配环，不拉 Web/配置中心；
   `restSurfaceWired` 额外守 REST 面与 `getArtifactService()`，因为制品 bean 缺失时是 500 而不是 404）。
@@ -245,6 +248,18 @@ mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过
   `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_DB` 环境变量（缺省 localhost），源码里不含任何真实凭据；
   生产链路请一律用上面的环境变量注入方式，不要把凭据写进源码或 yml。
 - `z-indexer-server` 无测试代码。
+
+### 本地实跑（2026-10-02，JDK 17 / macOS，`java -jar` + REST 全链路）
+
+以本仓自身为被索引仓（本地路径 + `BRANCH=main`）：注册 → 首建（克隆 + 双轨）→ 查询全通。
+静态轨 3,767 行 / 编译轨 4,152 行，`symbol`（file:line 精确到行）、`callers`/`callees`（内部边与
+JDK 边）、`/index/repo/artifact`、`/index/monitor/health` 均实测 200。两处 JDK 环境事实：
+
+- 注入轮 2 的处理器按 JDK 8 javac 写（绑 `JavacProcessingEnvironment`）；JDK 9+ 模块封装会挡——
+  本机用 `z.indexer.maven-opts` 追加 `--add-exports=jdk.compiler/com.sun.tools.javac.*=ALL-UNNAMED`
+  后编译轨正常出数。生产容器为 JDK 8 则无需任何额外参数。
+- 仓库自身 pom 若写 `<proc>none</proc>`，注入形同虚设（见 `PomIndexerPatcherTest`）；注入器已剥
+  same-pom 两处，祖先链再锁 `proc:none` 属已知边界。
 
 ---
 

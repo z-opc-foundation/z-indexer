@@ -26,6 +26,10 @@ import java.util.List;
  * <p>幂等：已注入（存在同 GAV path）则只刷新 -A 参数。
  * <p>已知边界：若某子模块自带独立 maven-compiler-plugin 配置覆盖了根配置，
  * 该子模块不会被索引（ Maven 继承覆盖行为，无法从外部规避）。
+ * <p>proc 开关：仓库若在本 pom 的 compiler 配置里写了 &lt;proc&gt;none&lt;/proc&gt;
+ * （build/plugins 或 pluginManagement），javac 会整体静默关闭注解处理——
+ * 注入了 annotationProcessorPaths 也不跑（本仓自索引自证）。注入时同剥两处；
+ * 祖先链 pluginManagement 再锁 proc:none 的仓与上面子模块覆盖同款，属已知边界。
  */
 public class PomIndexerPatcher {
 
@@ -84,6 +88,21 @@ public class PomIndexerPatcher {
             configuration = doc.createElement("configuration");
             // configuration 必须位于 groupId/artifactId/version 之后
             compilerPlugin.appendChild(configuration);
+        }
+        // 0) proc 开关：configuration 链上任何 <proc>none</proc> 都会让 javac 整体跳过注解处理
+        //    （-proc:none 优先于显式 -processorpath），注入形同虚设且无任何告警。剥掉 same-pom
+        //    的两处；不能写 <proc>full</proc> 反打——full 是 JDK 21+ 才认的旗标，旧 javac 直接
+        //    invalid flag。
+        stripProcNone(compilerPlugin);
+        Element pluginManagement = child(build, "pluginManagement");
+        if (pluginManagement != null) {
+            NodeList managed = pluginManagement.getElementsByTagName("plugin");
+            for (int i = 0; i < managed.getLength(); i++) {
+                Element p = (Element) managed.item(i);
+                if (COMPILER_PLUGIN_ARTIFACT.equals(textOf(child(p, "artifactId")))) {
+                    stripProcNone(p);
+                }
+            }
         }
 
         // 1) annotationProcessorPaths：追加 code-indexer（幂等）。
@@ -146,6 +165,17 @@ public class PomIndexerPatcher {
         }
         return "injected processor=" + INDEXER_GROUP_ID + ":" + INDEXER_ARTIFACT_ID + ":" + INDEXER_VERSION
                 + (already ? " (existed)" : " (added)");
+    }
+
+    private static void stripProcNone(Element compilerPlugin) {
+        Element configuration = child(compilerPlugin, "configuration");
+        if (configuration == null) {
+            return;
+        }
+        Element proc = child(configuration, "proc");
+        if (proc != null && "none".equals(textOf(proc))) {
+            configuration.removeChild(proc);
+        }
     }
 
     private static void removeArg(Element compilerArgs, String prefix) {
