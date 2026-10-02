@@ -20,7 +20,7 @@ public class IndexerConfig {
 
     /**
      * mvn 子进程 JVM 参数（MAVEN_OPTS）。默认堆 1g：容器 limit 4g，服务 JVM 按容器 50%（约 2.4g RSS），
-     * 留给构建进程约 1.6g——堆 2g 时大仓库构建会被 cgroup OOM kill（exit=137，inpatient/nis 实证）。
+     * 留给构建进程约 1.6g——堆 2g 时大仓库构建会被 cgroup OOM kill（exit=137，两个大仓实证）。
      * 并发构建≥2 时建议降到 -Xmx512m（内存预算见 buildConcurrency 注释）。
      */
     private String mavenOpts = "-Xmx1g -XX:MaxMetaspaceSize=256m";
@@ -51,8 +51,8 @@ public class IndexerConfig {
 
     /**
      * 巨仓列表（逗号分隔 repoCode）：这些仓构建前查询端 LRU 让路（驱逐冷仓到低水位）。
-     * 背景（0902 实证）：容器 limit 4g 内「预热 12 仓常驻 + mvn 1g 堆」叠加会 cgroup
-     * OOM kill 整个 pod（inpatient 构建中 pod 重启，build-log 半行戛然而止）。
+     * 背景（实证）：容器 limit 4g 内「预热 12 仓常驻 + mvn 1g 堆」叠加会 cgroup
+     * OOM kill 整个 pod（巨仓构建中 pod 重启，build-log 半行戛然而止）。
      * 让路后构建照常、常驻靠查询自然回填（agent 首查 30s loading 可接受），
      * 与常态高常驻（warmup/lru）不冲突——只在巨仓构建的几分钟内临时收缩。
      */

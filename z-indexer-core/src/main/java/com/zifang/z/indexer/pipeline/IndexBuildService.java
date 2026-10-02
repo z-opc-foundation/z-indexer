@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * 构建管线编排：远端变更检测 → 同步工作副本 → 双轮索引（静态全量主索引 + 编译附带对照）
  * → JSONL 原子替换 → meta.json → 注册表/构建日志回写。
- * <p>双轮模式（0910 起）：轮1 静态全量（JavaParser 免编译秒级，indexType=STATIC，全量仓
+ * <p>双轮模式：轮1 静态全量（JavaParser 免编译秒级，indexType=STATIC，全量仓
  * 一律可索引）；轮2 编译附带（pom 注入+mvn，成功才写 &lt;repo&gt;.compiled.jsonl 对照产物，
  * 失败不影响主索引 SUCCESS）。staticFallbackEnabled=false 时回退纯编译模式（kill-switch）。
  * <p>串行调用（由 IndexSyncRunner 单线程驱动），方法自身保证单仓库状态闭环。
@@ -443,8 +443,8 @@ public class IndexBuildService {
         repo.setBuiltBy(instanceTag);
         registryStore.persistStatus(repo);
 
-        // 巨仓让路：mvn 1g 堆与查询端高常驻叠加会顶破 4g limit（0902 inpatient 实证
-        // pod 构建中 cgroup 重启，build-log 半行戛然而止），构建前驱逐 LRU 冷仓到低水位
+        // 巨仓让路：mvn 1g 堆与查询端高常驻叠加会顶破 4g limit（实证：巨仓构建中 pod
+        // cgroup 重启，build-log 半行戛然而止），构建前驱逐 LRU 冷仓到低水位
         if (isBigRepo(repoCode) && "MAVEN".equalsIgnoreCase(repo.getBuildType())) {
             yieldForBuild(repoCode);
         }
@@ -730,7 +730,7 @@ public class IndexBuildService {
         cmd.add("-U");
         cmd.add("-DskipTests");
         cmd.add("-Dmaven.test.skip=true");
-        // 内置 maven 时用内置 settings（走私服）
+        // 内置 maven 时用内置 settings（默认镜像 Maven Central，见 resources/bin/settings.xml）
         File settings = new File(new File(config.getReposRoot(), "bin"), "settings.xml");
         if (mvnCmd.endsWith("/bin/mvn") && settings.exists()) {
             cmd.add("-s");
@@ -752,7 +752,7 @@ public class IndexBuildService {
      * 巨仓 mvn 的 [ERROR] 编译错误行常被截掉，全量日志是归因唯一可靠来源。
      * <p>读流必须在独立线程：主线程 waitFor(timeout) 才能真正超时杀进程
      * （读流在主线程会阻塞到进程退出，活进程无输出时 timeout 永不触发，
-     * inpatient 僵尸 40min+ 实证 0902）。
+     * 巨仓僵尸进程挂 40min+ 实证）。
      */
     private GitOps.ExecResult runProcess(ProcessBuilder pb) {
         Process p = null;

@@ -63,7 +63,7 @@ public class IndexerProperties {
 
     /**
      * 巨仓列表（逗号分隔 repoCode）：这些仓构建前查询端 LRU 让路（驱逐冷仓到低水位）。
-     * 巨仓 mvn 堆与常驻叠加会顶破容器 limit（0902 inpatient 实证 pod cgroup 重启）。
+     * 巨仓 mvn 堆与常驻叠加会顶破容器 limit（实证：巨仓构建期 pod cgroup 重启）。
      */
     private String bigRepoCodes = "demo-big-repo-1,demo-big-repo-2";
 

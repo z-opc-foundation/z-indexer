@@ -44,6 +44,6 @@
         </profile>
     </profiles>
     <activeProfiles>
-        <activeProfile>indexer-deps</activeProfile>
+        <activeProfile>z-indexer-deps</activeProfile>
     </activeProfiles>
 </settings>

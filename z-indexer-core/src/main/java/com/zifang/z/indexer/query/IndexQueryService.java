@@ -38,9 +38,9 @@ public class IndexQueryService {
     /** 冷加载单线程（与热重建分开：大仓冷加载 10-60s，不能阻塞 meta 变更热重建） */
     private final ExecutorService coldLoadExecutor = Executors.newSingleThreadExecutor();
 
-    /** 冷加载去重：正在后台加载的 repoCode（0902 fork 实证：B超单首查 dtc 三个调用全部
-     * 同步加载超 10s 被工具层超时拦截，agent 7 分钟后回来才热；改异步后首次查询立即返回
-     * loading 提示，agent 稍后重试即热） */
+    /** 冷加载去重：正在后台加载的 repoCode（实证：同一冷仓的三个并发调用全部
+     * 同步加载超 10s 被工具层超时拦截，调用方 7 分钟后回来才热；改异步后首次查询立即返回
+     * loading 提示，稍后重试即热） */
     private final Set<String> loadingRepos = new HashSet<String>();
 
     private final Object lruLock = new Object();

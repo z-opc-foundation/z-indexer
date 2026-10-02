@@ -50,8 +50,8 @@ public class RegistryStore {
 
     private final Deque<BuildLogEntry> recentBuilds = new ArrayDeque<BuildLogEntry>(RING_SIZE);
 
-    /** 0911 P0：status 文件 mtime+size 短路戳（repoCode → stamp）。所有访问均在 lock 内；
-     *  未变化文件跳过重读+解析——168 仓 /repos 从 1.4-4s 降到 <100ms，实时性不变
+    /** status 文件 mtime+size 短路戳（repoCode → stamp）。所有访问均在 lock 内；
+     *  未变化文件跳过重读+解析——百仓级 /repos 从 1.4-4s 降到 <100ms，实时性不变
      *  （stat 每次都做，文件一变下一次请求立即感知）。 */
     private final Map<String, Long> statusStamps = new HashMap<String, Long>();
 
@@ -251,7 +251,7 @@ public class RegistryStore {
                     target.delete();
                     tmp.renameTo(target);
                 }
-                // 0911 P0：写方同步记账，本实例下次 /repos 不再重读该文件
+                // 写方同步记账，本实例下次 /repos 不再重读该文件
                 statusStamps.put(repo.getRepoCode(), statusStampOf(target));
             } catch (Exception e) {
                 log.warn("[RegistryStore] failed to persist status for {}: {}",
@@ -276,7 +276,7 @@ public class RegistryStore {
             if (local == null) {
                 continue; // 静态真源在 registry.json；无注册条目的孤儿状态忽略
             }
-            // 0911 P0：mtime+size 未变即跳过重读（写方 persistStatus 同步记账；
+            // mtime+size 未变即跳过重读（写方 persistStatus 同步记账；
             // 他机写入 mtime 必变，下一次请求立即感知，秒级精度内无陈旧窗口）
             Long stamp = statusStampOf(f);
             Long known = statusStamps.get(code);

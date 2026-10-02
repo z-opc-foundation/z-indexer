@@ -10,7 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 /**
- * 0911 P0：status mtime+size 短路戳语义。
+ * status mtime+size 短路戳语义。
  * <p>1) 未变化文件 listRepos 用内存快照（短路不损实时性——stat 每次都做）；
  * 2) 写方 persistStatus 记账后，本实例读回一致；
  * 3) 外部进程改写 status 文件（多实例场景），下一次 listRepos 立即感知。

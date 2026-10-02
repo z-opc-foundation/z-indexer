@@ -55,8 +55,8 @@ public class RepoIndex {
     /**
      * 加载期字符串复用池：jsonl 每行独立解析，边表 from/to/file 与符号表 sym/kind 高度重复
      * （同一 FQN 在每条边里都是新拷贝，Java 8 无 compact strings，120 字符 ≈300B，
-     * dtc 53 万边不规范化 ≈440MB——0902 预热 6 大仓 OOM 实测根因；
-     * 复用后仅保留唯一串，dtc 降至 ~60MB，7-8 倍）。池本身加载完即可 GC。
+     * 某个 53 万边的大仓不规范化 ≈440MB——预热 6 大仓 OOM 的实测根因；
+     * 复用后仅保留唯一串，同仓降至 ~60MB，7-8 倍）。池本身加载完即可 GC。
      */
     private static final class StringPool {
         private final HashMap<String, String> map = new HashMap<String, String>();

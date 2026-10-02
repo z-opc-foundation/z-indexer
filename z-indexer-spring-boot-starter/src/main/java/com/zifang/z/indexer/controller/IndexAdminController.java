@@ -195,7 +195,7 @@ public class IndexAdminController {
     /** 上传产物大小上限（前端仓 jsonl 最大几十 MB，留 256MB 余量）。 */
     private static final long MAX_UPLOAD_BYTES = 256L * 1024 * 1024;
 
-    /** 每仓一把上传锁：网关对慢请求会 retry（0902 实证），串行化并发重复请求，防交错写。 */
+    /** 每仓一把上传锁：网关对慢请求会 retry（实证），串行化并发重复请求，防交错写。 */
     private final ConcurrentHashMap<String, Object> uploadLocks = new ConcurrentHashMap<String, Object>();
 
     /**
@@ -206,7 +206,7 @@ public class IndexAdminController {
      * lastIndexedCommit 对齐远端 → poller 视为无变更跳过，不会触发容器内重建。
      * <p>?sha256= 为产物摘要（64 位 hex，客户端 shasum -a 256 生成），端到端校验。
      * <p>产物标注 indexType=STATIC（上传即静态分析产物，与容器内双轮主索引同语义）。
-     * <p>读流按 Content-Length 硬截断：0902 实证经网关转发的请求流可能永不返回 EOF
+     * <p>读流按 Content-Length 硬截断：实证经网关转发的请求流可能永不返回 EOF
      * （read 不返回 -1），无截断会无限写盘（4 请求 15 分钟写爆 103GB NAS）；
      * 且网关 retry 造成的并发重复请求会交错写盘（同 tmp 被 truncate 两次、双流独立
      * offset 交错，落盘行数错乱+末行截断）——故 tmp 名带 UUID 隔离并发流，
@@ -256,7 +256,7 @@ public class IndexAdminController {
         // 同仓上传互斥：网关 retry 产生的并发重复请求排队处理（内容相同，后者覆盖前者无害）
         Object lock = uploadLocks.computeIfAbsent(repoCode, k -> new Object());
         synchronized (lock) {
-        // tmp 名带 UUID：0902 实证固定名会被并发 retry 的第二个请求 truncate，
+        // tmp 名带 UUID：实证固定名会被并发 retry 的第二个请求 truncate，
         // 双流独立 offset 交错写盘（行数错乱+末行截断）；唯一名让并发流各写各的
         File tmp = new File(buildService.indexerDir(), ".upload-" + repoCode + "-" + UUID.randomUUID() + ".jsonl");
         File target = buildService.indexFile(repoCode);
@@ -369,7 +369,7 @@ public class IndexAdminController {
 
     /**
      * 分片上传 part：body 为该片原始字节（≤1MB），写入 .upload-<repoCode>-<uploadId>.part 的 offset 处。
-     * <p>背景：网关对 >8-12KB 的请求体会做确定性的内容重排（0902 实证 12KB 起必坏、
+     * <p>背景：网关对 >8-12KB 的请求体会做确定性的内容重排（实证 12KB 起必坏、
      * 8KB 内完好），单次大 body 直传不可用，改分片（客户端建议 8KB/片）：
      * <ul>
      * <li>同 uploadId 同 offset 重复写幂等——网关 retry 重发某片只是重写同一位置，无害；

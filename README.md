@@ -38,7 +38,7 @@ Node + Babel），产物落成 JSONL 倒排索引常驻内存，对外只给四�
 | 前端仓索引 | 同上 + `resources/bin/frontend-indexer.cjs` | Node 脚本扫描 TS/JS，输出与 Java 链路同 schema 的 def/call 行 |
 | 定时轮询重建 | `schedule/IndexSyncRunner` + starter `config/IndexerAutoConfiguration#scheduledPoll` | `fixedDelay` 语义（上一轮跑完再计时）；`BUILDING` 跳过、`FAILED` 每轮重试、`NEVER` 首建 |
 | 分布式多实例互斥 | `registry/BuildLockManager` | NAS `locks/<repoCode>.lock` 原子创建抢锁；stale 阈值 = 构建超时×2 + 10 分钟，实例宕机留死锁可被抢占；多实例天然把待建集合拆分并行 |
-| 符号 / 调用链查询 | `query/IndexQueryService`、`query/RepoIndex` | 内存倒排（符号表 def + 入边 callee→callers + 出边 caller→callees）；LRU 懒加载、meta/mtime 变化后台热重建（重建期间旧索引继续服务）；冷仓首查立即返回 loading 提示并异步加载；加载期字符串复用池（实测 dtc 440MB→~60MB） |
+| 符号 / 调用链查询 | `query/IndexQueryService`、`query/RepoIndex` | 内存倒排（符号表 def + 入边 callee→callers + 出边 caller→callees）；LRU 懒加载、meta/mtime 变化后台热重建（重建期间旧索引继续服务）；冷仓首查立即返回 loading 提示并异步加载；加载期字符串复用池（实测 53 万边大仓 440MB→~60MB） |
 | 巨仓构建让路 | `IndexQueryService#shrinkTo` + `IndexerConfig.bigRepoCodes/buildYieldRepos` | 巨仓构建前把冷仓驱逐到低水位，避免预热常驻 + mvn 堆叠加顶破容器内存 |
 | 启动预热 | `IndexerAutoConfiguration#queryWarmupRunner` | SUCCESS 仓按索引行数降序预加载前 `warmup-repos` 个，错峰 60s 避开首轮 poller IO |
 | 索引产物上传（本地生产模式） | `controller/IndexAdminController#uploadIndex/uploadPart/uploadFinish` | 容器内跑不动的仓（如前端）在本地生成 JSONL 后上传：`commit` 与远端 HEAD `ls-remote` 校验、`sha256` 端到端校验、按 `Content-Length` 硬截断、tmp 名带 UUID 隔离网关 retry 并发流；上限 256MB；支持分片 |

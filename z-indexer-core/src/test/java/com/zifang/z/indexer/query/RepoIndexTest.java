@@ -11,9 +11,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * RepoIndex.load 字符串复用（0902 内存治理）：
+ * RepoIndex.load 字符串复用（内存治理）：
  * jsonl 每行独立解析，from/to/file/kind 在边表/符号表中高度重复，不复用时
- * dtc 53 万边 ≈440MB（预热 6 大仓 OOM 实证），复用后仅保留唯一串。
+ * 53 万边的大仓 ≈440MB（预热 6 大仓 OOM 实证），复用后仅保留唯一串。
  * 用 assertSame 锁定「同值同实例」语义，防止无声回退到每边独立拷贝。
  */
 public class RepoIndexTest {

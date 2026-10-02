@@ -110,7 +110,7 @@ public class IndexSyncRunner {
                             }
                         }
                     } else {
-                        // 上次失败：每轮重试（失败原因可能是瞬时的：私服抖动 / tag 未就绪）
+                        // 上次失败：每轮重试（失败原因可能是瞬时的：镜像仓抖动 / tag 未就绪）
                         needBuild = true;
                     }
                     if (needBuild) {
