@@ -1,5 +1,9 @@
 package com.zifang.z.indexer.config;
 
+import com.zifang.z.indexer.controller.IndexAdminController;
+import com.zifang.z.indexer.controller.IndexArtifactController;
+import com.zifang.z.indexer.controller.IndexMonitorController;
+import com.zifang.z.indexer.controller.IndexQueryController;
 import com.zifang.z.indexer.pipeline.IndexBuildService;
 import com.zifang.z.indexer.query.IndexQueryService;
 import com.zifang.z.indexer.registry.RegistryStore;
@@ -26,7 +30,7 @@ public class IndexerAutoConfigurationSmokeTest {
 
     @BeforeClass
     public void setUp() throws Exception {
-        File reposRoot = Files.createTempDirectory("ft-indexer-ctx").toFile();
+        File reposRoot = Files.createTempDirectory("z-indexer-ctx").toFile();
         System.setProperty("z.indexer.repos-root", reposRoot.getAbsolutePath());
         ctx = new AnnotationConfigApplicationContext();
         ctx.register(IndexerAutoConfiguration.class);
@@ -46,6 +50,21 @@ public class IndexerAutoConfigurationSmokeTest {
         RegistryStore store = ctx.getBean(RegistryStore.class);
         Assert.assertNotNull(store);
         Assert.assertNotNull(ctx.getBean(IndexSyncRunner.class));
+    }
+
+    /**
+     * REST 面随 @ComponentScan 一起装出来（只装 service bean 不给端点等于没装配）。
+     * <p>制品端点是后加的：它的 bean 不在装配面里，等于打包链路对外不可见，
+     * 而 buildService.getArtifactService() 为 null 时是 500 而不是 404，故两处都验。
+     */
+    @Test
+    public void restSurfaceWired() {
+        Assert.assertNotNull(ctx.getBean(IndexQueryController.class));
+        Assert.assertNotNull(ctx.getBean(IndexAdminController.class));
+        Assert.assertNotNull(ctx.getBean(IndexMonitorController.class));
+        Assert.assertNotNull(ctx.getBean(IndexArtifactController.class));
+        Assert.assertNotNull(ctx.getBean(IndexBuildService.class).getArtifactService(),
+                "artifactService 未构造，制品端点会 NPE");
     }
 
     @AfterClass

@@ -26,7 +26,7 @@ import java.util.Map;
  * <p>依赖本机 mvn/git 可用，processor 从 test classpath（bin/code-indexer.jar）
  * 自动释放到 ~/.m2（自足，不依赖环境预装）。
  * <p>默认跳过（Matrix 构建机不跑 E2E，避免环境抖动挂部署）：
- * 开启方式 {@code mvn test -Dtest=IndexerE2eTest -Dft.indexer.e2e=true}。
+ * 开启方式 {@code mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true}。
  */
 public class IndexerE2eTest {
 
@@ -79,15 +79,15 @@ public class IndexerE2eTest {
 
     @Test
     public void fullPipeline() throws Exception {
-        String flag = System.getProperty("ft.indexer.e2e",
-                System.getenv("FT_INDEXER_E2E") == null ? "" : System.getenv("FT_INDEXER_E2E"));
+        String flag = System.getProperty("z.indexer.e2e",
+                System.getenv("Z_INDEXER_E2E") == null ? "" : System.getenv("Z_INDEXER_E2E"));
         if (!"true".equalsIgnoreCase(flag)) {
-            throw new SkipException("indexer E2E disabled (enable with -Dft.indexer.e2e=true)");
+            throw new SkipException("indexer E2E disabled (enable with -Dz.indexer.e2e=true)");
         }
         if (!commandAvailable("git") || !commandAvailable("mvn")) {
             throw new SkipException("git/mvn not available on this machine");
         }
-        File work = createTempDir("ft-indexer-e2e");
+        File work = createTempDir("z-indexer-e2e");
         File srcRepo = new File(work, "demo-repo-src");
         writeSources(srcRepo);
         git(srcRepo, "init", "-q", "-b", "master");
@@ -221,15 +221,15 @@ public class IndexerE2eTest {
      */
     @Test
     public void dualTrackFallback() throws Exception {
-        String flag = System.getProperty("ft.indexer.e2e",
-                System.getenv("FT_INDEXER_E2E") == null ? "" : System.getenv("FT_INDEXER_E2E"));
+        String flag = System.getProperty("z.indexer.e2e",
+                System.getenv("Z_INDEXER_E2E") == null ? "" : System.getenv("Z_INDEXER_E2E"));
         if (!"true".equalsIgnoreCase(flag)) {
-            throw new SkipException("indexer E2E disabled (enable with -Dft.indexer.e2e=true)");
+            throw new SkipException("indexer E2E disabled (enable with -Dz.indexer.e2e=true)");
         }
         if (!commandAvailable("git") || !commandAvailable("mvn")) {
             throw new SkipException("git/mvn not available on this machine");
         }
-        File work = createTempDir("ft-indexer-dual");
+        File work = createTempDir("z-indexer-dual");
 
         IndexerConfig cfg = new IndexerConfig();
         cfg.setReposRoot(new File(work, "repos-root").getAbsolutePath());
@@ -422,10 +422,10 @@ public class IndexerE2eTest {
      */
     @Test
     public void frontendPipeline() throws Exception {
-        String flag = System.getProperty("ft.indexer.e2e",
-                System.getenv("FT_INDEXER_E2E") == null ? "" : System.getenv("FT_INDEXER_E2E"));
+        String flag = System.getProperty("z.indexer.e2e",
+                System.getenv("Z_INDEXER_E2E") == null ? "" : System.getenv("Z_INDEXER_E2E"));
         if (!"true".equalsIgnoreCase(flag)) {
-            throw new SkipException("indexer E2E disabled (enable with -Dft.indexer.e2e=true)");
+            throw new SkipException("indexer E2E disabled (enable with -Dz.indexer.e2e=true)");
         }
         if (!commandAvailable("git")) {
             throw new SkipException("git not available on this machine");
@@ -435,7 +435,7 @@ public class IndexerE2eTest {
             throw new SkipException("node not available (set NODE_BIN or add to PATH)");
         }
 
-        File work = createTempDir("ft-indexer-fe-e2e");
+        File work = createTempDir("z-indexer-fe-e2e");
         File srcRepo = new File(work, "fe-repo-src");
         writeText(new File(srcRepo, "package.json"), "{\"name\":\"fe-repo\",\"version\":\"1.0.0\"}\n");
         writeText(new File(srcRepo, "src/calc.ts"), FE_CALC);

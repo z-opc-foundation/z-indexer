@@ -8,13 +8,15 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.concurrent.TimeUnit;
 
 /**
- * z-boot-cache-starter 本地冒烟（0902 排障用，不进 CI）：
+ * z-boot-cache-starter 本地冒烟（排障用，不进 CI）：
  * 完整 @SpringBootApplication 启动（与生产 IndexerApplication 同路径），
- * indexer 组件用本地临时目录兜底，spring.redis.* 与生产 yaml 完全一致。
- * <p>背景：456a20e5 部署后新 pod CrashLoop（Unavailable，4 分钟重启 4 次），
- * 本地凭据直连 OK（AUTH/PING/SELECT 79），需定位是装配问题还是容器网络问题。
+ * indexer 组件用本地临时目录兜底，spring.redis.* 走环境变量注入。
+ * <p>用途：pod CrashLoop 时判是装配问题还是容器网络问题——本地用同一份变量直连一次，
+ * AUTH/PING/SELECT 全通则问题在容器侧。
+ * <p>凭据一律来自环境（REDIS_HOST / REDIS_PORT / REDIS_DB / REDIS_PASSWORD），
+ * 不落进源码：未设时退到 localhost:6379/0，探针自己报连不上。
  * <p>注意：本地会报 "access cache config pull fail: cache config content is empty"——
- * 配置中心本地不可达所致（ERROR 但不中断启动），生产环境配置中心可达。
+ * 配置中心本地不可达所致（ERROR 但不中断启动）。
  */
 @SpringBootApplication
 public class RedisStarterSmokeMain {
@@ -25,13 +27,13 @@ public class RedisStarterSmokeMain {
                         "server.port=0",
                         "spring.application.name=redis-smoke",
                         // indexer 组件本地兜底：临时目录 + 首轮 poller 拉远避免干扰
-                        "z.indexer.repos-root=/tmp/idx-smoke-root",
+                        "z.indexer.repos-root=" + System.getProperty("java.io.tmpdir") + "/idx-smoke-root",
                         "z.indexer.poll-initial-delay-ms=999999999",
                         // 直配 spring.redis.*（RedissonAutoConfiguration 原生前缀，不依赖配置中心）
-                        "spring.redis.database=79",
-                        "spring.redis.host=r-bp1b4vmp5do59nohtw.redis.rds.aliyuncs.com",
-                        "spring.redis.password=YC3p#JTuC6m7",
-                        "spring.redis.port=6379",
+                        "spring.redis.database=" + env("REDIS_DB", "0"),
+                        "spring.redis.host=" + env("REDIS_HOST", "localhost"),
+                        "spring.redis.password=" + env("REDIS_PASSWORD", ""),
+                        "spring.redis.port=" + env("REDIS_PORT", "6379"),
                         "spring.redis.lettuce.pool.max-active=20",
                         "spring.redis.lettuce.pool.max-idle=10",
                         "spring.redis.lettuce.pool.max-wait=-1ms",
@@ -55,5 +57,10 @@ public class RedisStarterSmokeMain {
         } finally {
             ctx.close();
         }
+    }
+
+    private static String env(String name, String fallback) {
+        String v = System.getenv(name);
+        return v == null || v.trim().isEmpty() ? fallback : v.trim();
     }
 }

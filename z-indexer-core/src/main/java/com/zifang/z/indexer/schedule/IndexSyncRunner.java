@@ -174,6 +174,11 @@ public class IndexSyncRunner {
      * <p>锁被其它实例持有时返回 false（该实例正在构建同仓）。
      */
     public boolean rebuildOne(String repoCode) {
+        return rebuildOne(repoCode, false);
+    }
+
+    /** 手动重建（Admin 用）：skipCompile=true 跳过 mvn 编译轮，仅静态索引+打制品（预热用）。 */
+    public boolean rebuildOne(String repoCode, boolean skipCompile) {
         IndexRepo repo = registryStore.find(repoCode);
         if (repo == null) {
             return false;
@@ -184,7 +189,7 @@ public class IndexSyncRunner {
             return false;
         }
         try {
-            return buildService.buildOne(repo, "MANUAL");
+            return buildService.buildOne(repo, "MANUAL", skipCompile);
         } finally {
             lockManager.release(repoCode);
         }

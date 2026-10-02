@@ -42,6 +42,7 @@ Node + Babel），产物落成 JSONL 倒排索引常驻内存，对外只给四�
 | 巨仓构建让路 | `IndexQueryService#shrinkTo` + `IndexerConfig.bigRepoCodes/buildYieldRepos` | 巨仓构建前把冷仓驱逐到低水位，避免预热常驻 + mvn 堆叠加顶破容器内存 |
 | 启动预热 | `IndexerAutoConfiguration#queryWarmupRunner` | SUCCESS 仓按索引行数降序预加载前 `warmup-repos` 个，错峰 60s 避开首轮 poller IO |
 | 索引产物上传（本地生产模式） | `controller/IndexAdminController#uploadIndex/uploadPart/uploadFinish` | 容器内跑不动的仓（如前端）在本地生成 JSONL 后上传：`commit` 与远端 HEAD `ls-remote` 校验、`sha256` 端到端校验、按 `Content-Length` 硬截断、tmp 名带 UUID 隔离网关 retry 并发流；上限 256MB；支持分片 |
+| master 制品打包 | `pipeline/ArtifactService` + `controller/IndexArtifactController` | 每次 SUCCESS 后异步把工作区打成 `artifacts/<repoCode>.zip`（纯内容，无目录前缀），首个条目是 `_artifact_meta.json`（commit / files / bytes）；剔除 `.git,target,node_modules,build,dist,.idea,.vscode`，跳过符号链接；单线程 daemon 队列串行打包，先写 `.tmp-*` 再 `fd.sync()` + `ATOMIC_MOVE`（NFS 上 rename 后 0 字节的坑）。源码在容器里被删的仓，下游可直接拉制品而不必挂整卷 |
 | 监控与健康 | `controller/IndexMonitorController` | 状态分布 / 索引新鲜度 / 常驻仓库 / 最近轮询耗时 / 构建历史 / 巡检健康 |
 | Redis 连通探针 | `controller/RedisProbeController` | `SET→GET→DEL` 带 TTL 测试键，验证 `z-boot-cache-starter` 链路 |
 | 引入即生效（starter） | `z-indexer-spring-boot-starter/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` | 2026-09-29 补齐：此前 starter 无任何注册文件，装配全靠 server 的 `@SpringBootApplication` 扫包，"引入即用"对仓外消费者不成立 |
@@ -55,18 +56,18 @@ z-indexer/
 ├── pom.xml                              # 根聚合 POM：z-boot-parent:1.0.21 + <revision>1.0.0 + central profile
 ├── _doc/                                # 文档收口目录（实测：当前为空目录，0 个文件）
 ├── _frontend/
-│   └── README.md                        # 前端索引器暂存位说明（未迁移，见该文件）
+│   └── README.md                        # 前端索引器说明（交付副本在 resources/bin/，本目录不被构建读取）
 ├── z-indexer-core/                      # 领域核心，不依赖 Spring（纯 POJO IndexerConfig）
 │   └── src/main/java/com/zifang/z/indexer/
 │       ├── IndexerConfig.java           # 核心配置 POJO
 │       ├── registry/                    # RegistryStore / IndexRepo / BuildLogEntry / BuildLockManager
-│       ├── pipeline/                    # GitOps / IndexBuildService / PomIndexerPatcher / StaticJavaIndexer
+│       ├── pipeline/                    # GitOps / IndexBuildService / PomIndexerPatcher / StaticJavaIndexer / ArtifactService
 │       ├── query/                       # IndexQueryService / RepoIndex
 │       └── schedule/                    # IndexSyncRunner
-├── z-indexer-spring-boot-starter/       # 可被引用的库：自动装配 + 4 个 REST Controller（发 Central）
+├── z-indexer-spring-boot-starter/       # 可被引用的库：自动装配 + 5 个 REST Controller（发 Central）
 │   └── src/main/java/com/zifang/z/indexer/
 │       ├── config/                      # IndexerAutoConfiguration / IndexerProperties
-│       └── controller/                  # IndexAdmin / IndexQuery / IndexMonitor / RedisProbe
+│       └── controller/                  # IndexAdmin / IndexQuery / IndexMonitor / IndexArtifact / RedisProbe
 └── z-indexer-server/                    # 可执行进程（fat jar，永不发 Central）
     └── src/main/
         ├── java/com/zifang/z/indexer/IndexerApplication.java   # @SpringBootApplication + @EnableScheduling
@@ -109,7 +110,7 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 | 配置键 | 代码默认 | 仓内值 | 用途 |
 |--------|----------|--------|------|
 | `z.indexer.enabled` | `true` | `true` | 总开关：只掐 `@Scheduled` 轮询，REST 端点仍可查已有索引 |
-| `z.indexer.repos-root` | `${java.io.tmpdir}/z-indexer` | `/var/lib/z-indexer/repos` | 根目录，下设 `repos/`（工作副本）、`indexer/`（产物+注册表+锁）、`bin/`（释放的工具链） |
+| `z.indexer.repos-root` | `${java.io.tmpdir}/z-indexer` | `/var/lib/z-indexer` | 根目录，下设 `repos/`（工作副本）、`indexer/`（产物+注册表+锁）、`bin/`（释放的工具链）、`artifacts/`（纯内容制品）。**值不带 `/repos` 后缀** —— `reposDir()` 自己拼 `repos/`，写成 `.../repos` 会落出 `repos/repos/` |
 | `z.indexer.poll-interval-ms` | `600000` | `600000` | 轮询间隔 |
 | `z.indexer.poll-initial-delay-ms` | `60000` | `60000` | 启动后首轮延迟 |
 | `z.indexer.build-timeout-minutes` | `30` | `45` | 单仓构建超时 |
@@ -124,11 +125,12 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 | `z.indexer.default-depth` | `2` | `2` | 调用链默认展开深度 |
 | `z.indexer.max-result-nodes` | `200` | `200` | 单次返回节点上限 |
 
-**实测注意点（两个前缀不是一回事）**：`IndexerAutoConfiguration#scheduledPoll` 的
-`@Scheduled(initialDelayString = "${z-indexer.indexer.poll-initial-delay-ms:60000}", fixedDelayString =
-"${z-indexer.indexer.poll-interval-ms:600000}")` 读的是 **`z-indexer.indexer.poll-*`**，而
-`IndexerProperties` 绑定的是 **`z.indexer.poll-*`**。要改真实轮询周期，必须覆盖前者（仓内
-`application.yaml` 只写了后者，因此当前调度落在这两个占位符的默认值 60s 延迟 / 600s 间隔上）。
+**轮询周期口径（2026-10-02 修）**：`IndexerAutoConfiguration#scheduledPoll` 的占位符此前写成
+`${z-indexer.indexer.poll-*}`，而 `IndexerProperties` 绑的是 `z.indexer.poll-*` —— 两个前缀不是同一格，
+`application.yaml` 里配的 `poll-interval-ms` 永远到不了调度器，真实周期被钉死在占位符默认值
+（60s 延迟 / 600s 间隔）上，改配置不生效且毫无征兆。现占位符已统一为 `z.indexer.poll-*`，
+即改 yaml/配置中心里的 `z.indexer.poll-interval-ms` 就真的改到轮询周期。
+（仓内该值恰与默认同数，所以修前修后首轮节奏一样 —— 差别在"能不能被配走"。）
 
 环境变量（`application.yaml` 实测只有这 4 个 `${}` 引用，全在 `spring.redis.*` 下；**只写变量名，值必须经环境注入**）：
 
@@ -170,7 +172,7 @@ java -jar z-indexer-server/target/z-indexer-server-1.0.0.jar
 - **Redis 可达**：`spring.redis.*` 直配的是 Redisson 原生前缀，默认值指向 `localhost:6379`，
   连不上会直接阻止启动（`application.yaml` 注释记录）。本地要么起一个 Redis，要么用 `REDIS_HOST`/`REDIS_PORT` 指过去。
 - **可写数据目录**：`z.indexer.repos-root` 默认落 `java.io.tmpdir/z-indexer`；生产显式给
-  `/var/lib/z-indexer/repos`（容器内 `/data` 不可写，故不用它）。
+  `/var/lib/z-indexer`（跨部署持久的卷；值不带 `/repos` 后缀，见配置表那格）。
 - **端口**：仓内未钉 `server.port`，按部署侧下发值访问；`z-opc.application.name` 决定 context-path。
 
 ### 本机想跑真实构建链路
@@ -195,12 +197,13 @@ java -jar z-indexer-server/target/z-indexer-server-1.0.0.jar \
 | `POST /index/admin/repos` | 注册/更新：`repoCode, repoName, gitUrl, refMode, refValue, enabled, remark` |
 | `DELETE /index/admin/repos/{repoCode}` | 注销 |
 | `PUT /index/admin/repos/{repoCode}/enabled` | 启停（body `enabled`） |
-| `POST /index/admin/repos/{repoCode}/rebuild` | 手动重建（MANUAL，无变更也强建） |
+| `POST /index/admin/repos/{repoCode}/rebuild` | 手动重建（MANUAL，无变更也强建）；`?skipCompile=true` 走预热快路：只跑轮 1 静态索引 + 打制品，跳过轮 2 mvn 编译对照（单仓从分钟级压到秒级） |
 | `GET /index/admin/repos/{repoCode}/build-log?tailLines=300` | 构建日志尾部，`tailLines` 限 `[1,2000]` |
 | `POST /index/admin/poll` | 立即触发一轮全量轮询（后台线程） |
 | `POST /index/admin/repos/{repoCode}/upload?commit=&sha256=` | 单次上传 JSONL 产物（需 `Content-Length`，≤256MB，`ls-remote` 校 commit） |
 | `POST /index/admin/repos/{repoCode}/upload/part?uploadId=&offset=&sha256=` | 分片上传（乱序安全，逐片校验） |
 | `POST /index/admin/repos/{repoCode}/upload/finish?uploadId=&commit=&sha256=` | 分片收尾：整体 sha + commit 校验后原子替换 |
+| `GET /index/repo/artifact?repoCode=` | 下载 master 纯内容制品 zip（`artifacts/<repoCode>.zip`，响应头 `X-Artifact-Commit` 带打包时的 commit）；404＝制品未生成（仓从未 SUCCESS / 仍在打包），消费方回退整卷 cp。`repoCode` 走 `[A-Za-z0-9._-]{1,120}` 白名单，不合规直接 400 |
 | `GET /index/query/repos` | 可查询仓库 + 索引版本 |
 | `POST /index/query/symbol` | 符号搜索：`{repoCode, query, limit?, includeAccessors?}` |
 | `POST /index/query/callers` | 谁调用了它：`{repoCode, symbol, depth?, includeAccessors?}` |
@@ -218,17 +221,28 @@ java -jar z-indexer-server/target/z-indexer-server-1.0.0.jar \
 
 ```bash
 mvn test                                     # TestNG，surefire 版本走父链 2.22.2
-mvn test -Dtest=IndexerE2eTest -Dft.indexer.e2e=true   # 端到端（默认跳过）
+mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过）
 ```
 
-实测的测试资产：
+实测的测试资产（2026-10-02 本机 `mvn -B -o clean test`：**core 8 个 / starter 3 个，0 failures 0 errors，3 skipped**）：
 
-- `z-indexer-core`：`IndexerE2eTest`（3 个 `@Test`，真实 git + 真实 mvn；默认 `SkipException` 跳过，需 `-Dft.indexer.e2e=true` 且本机 mvn/git 可用）、
-  `RepoIndexTest`（1 个 `@Test`，`assertSame` 锁死字符串复用，防无声回退）、
-  `RegistryStoreStatusStampTest`（1 个 `@Test`，status 文件 mtime+size 短路戳语义）。
-- `z-indexer-spring-boot-starter`：`IndexerAutoConfigurationSmokeTest`（2 个 `@Test`，用
-  `AnnotationConfigApplicationContext` 在 `refresh()` 阶段暴露装配环，不拉 Web/配置中心）。
-- `RedisStarterSmokeMain` 是**手工排障 main**（非 `@Test`，不进 CI），且内含直连外部 Redis 的硬编码参数；
+- `z-indexer-core`（6 类 8 法）：
+  - `IndexerE2eTest`（3 个 `@Test`：`fullPipeline` / `dualTrackFallback` / `frontendPipeline`，真实 git +
+    真实 mvn；默认 `SkipException` 跳过 → 上面那 3 个 skipped 就是它们，需 `-Dz.indexer.e2e=true` 且本机 mvn/git 可用）
+  - `RepoIndexTest#loadDedupsRepeatedStringsAndKeepsSemantics`（`assertSame` 锁死字符串复用，防无声回退）
+  - `RegistryStoreStatusStampTest#stampShortCircuitAndExternalChange`（status 文件 mtime+size 短路戳语义，含多实例外部改写可见性）
+  - `RegistryStoreJsonRoundTripTest#persistWritesParseableJsonAndReloadsExact`（registry.json 落盘必须仍可解析：
+    直塞 POJO 会写出 `IndexRepo@15db9742` 碎片，注册表读回来就是空，属"写成功但数据坏了"的静默故障）
+  - `ArtifactServiceTest#packsPureContentAndSkipsSymlinks`（制品 zip 纯内容 + 剔除名单 + 首条目是 meta、
+    `meta.files/bytes` 与实际条目逐字节相符、`.tmp-*` 不残留）
+  - `StaticJavaIndexerTest#symContractAndJoin`（轮 1 静态索引的 def/call 产出与符号拼接口径）
+- `z-indexer-spring-boot-starter`：`IndexerAutoConfigurationSmokeTest`（3 个 `@Test`，用
+  `AnnotationConfigApplicationContext` 在 `refresh()` 阶段暴露装配环，不拉 Web/配置中心；
+  `restSurfaceWired` 额外守 REST 面与 `getArtifactService()`，因为制品 bean 缺失时是 500 而不是 404）。
+- 轮 2 编译产物与轮 1 的逐行对照（replay）没有自动化测试：它必须拿一个真实业务仓跑 `mvn`，
+  在开源/无外网环境下必然红，故只由 `IndexerE2eTest#dualTrackFallback` 在显式开关下覆盖"轮 2 失败不影响主索引 SUCCESS"这条不变式。
+- `RedisStarterSmokeMain` 是**手工排障 main**（非 `@Test`，不进 CI），参数全部走
+  `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` / `REDIS_DB` 环境变量（缺省 localhost），源码里不含任何真实凭据；
   生产链路请一律用上面的环境变量注入方式，不要把凭据写进源码或 yml。
 - `z-indexer-server` 无测试代码。
 
@@ -258,8 +272,9 @@ mvn test -Dtest=IndexerE2eTest -Dft.indexer.e2e=true   # 端到端（默认跳�
 
 仓内当前唯一的文档文件是前端侧的说明：
 
-- [`_frontend/README.md`](_frontend/README.md) — 前端工程索引器 `frontend-indexer.cjs` 的暂存位说明，
-  明确记录其"未迁移"状态与未来独立成仓的计划；运行时实际使用的副本在
-  `z-indexer-server/src/main/resources/bin/frontend-indexer.cjs`。
+- [`_frontend/README.md`](_frontend/README.md) — 前端工程索引器 `frontend-indexer.cjs` 的设计说明，
+  并记录本目录只是编辑用暂存位（不被构建读取）：运行时实际用的副本打包在
+  `z-indexer-server/src/main/resources/bin/frontend-indexer.cjs`（测试用副本在 `z-indexer-core/src/test/resources/bin/`），
+  改动须同步这两份，否则线上仍跑旧版。
 
 补文档时按规范落 `_doc/001_arch/` 等子目录，并回到本节加链接。

@@ -118,14 +118,15 @@ public class IndexAdminController {
         return resp;
     }
 
-    /** 手动重建（MANUAL，强制即使无变更也重建）。 */
+    /** 手动重建（MANUAL，强制即使无变更也重建）；skipCompile=true 走预热快路（仅静态索引+打制品）。 */
     @RequestMapping(value = "/repos/{repoCode}/rebuild", method = RequestMethod.POST)
-    public Map<String, Object> rebuild(@PathVariable("repoCode") String repoCode) {
+    public Map<String, Object> rebuild(@PathVariable("repoCode") String repoCode,
+                                       @RequestParam(value = "skipCompile", required = false, defaultValue = "false") Boolean skipCompile) {
         IndexRepo repo = registryStore.find(repoCode);
         if (repo == null) {
             return fail("repo not found: " + repoCode);
         }
-        boolean success = syncRunner.rebuildOne(repoCode);
+        boolean success = syncRunner.rebuildOne(repoCode, Boolean.TRUE.equals(skipCompile));
         Map<String, Object> resp = ok();
         resp.put("success", success);
         resp.put("repo", toMap(registryStore.find(repoCode)));

@@ -59,6 +59,12 @@ public class IndexBuildService {
     /** node linux-x64 二进制 zip（仅 node 单文件，解压到 bin/node-dist/node；容器无 node 命令） */
     public static final String NODE_BIN_RESOURCE = "/bin/node-bin.zip";
 
+    /**
+     * 内置 node 版本戳（须与 {@link #NODE_BIN_RESOURCE} 里那份二进制一致，改包即改戳）：
+     * NAS 卷跨部署持久，仅判 exists 会沿用旧二进制。
+     */
+    public static final String NODE_BIN_VERSION = "v20.18.1";
+
     /** 最近一次 ensureToolsJar 的结果说明（空=成功），供环境自检透出 */
     private volatile String toolsJarStatus = "not-checked";
 
@@ -76,6 +82,7 @@ public class IndexBuildService {
     private final IndexerConfig config;
     private final RegistryStore registryStore;
     private final GitOps gitOps;
+    private final ArtifactService artifactService;
     private volatile BuildListener buildListener;
 
     /** 查询端引用（构建让路用，装配层注入） */
@@ -88,10 +95,16 @@ public class IndexBuildService {
         this.config = config;
         this.registryStore = registryStore;
         this.gitOps = new GitOps(config);
+        this.artifactService = new ArtifactService(config);
     }
 
     public GitOps getGitOps() {
         return gitOps;
+    }
+
+    /** master 纯内容制品维护（构建 SUCCESS 后自动打包，HTTP 端点透出给快照链路） */
+    public ArtifactService getArtifactService() {
+        return artifactService;
     }
 
     public void setBuildListener(BuildListener buildListener) {
@@ -385,6 +398,14 @@ public class IndexBuildService {
      * @return 构建是否成功
      */
     public boolean buildOne(IndexRepo repo, String trigger) {
+        return buildOne(repo, trigger, false);
+    }
+
+    /**
+     * @param skipCompile 预热专用：跳过轮 2 mvn 编译对照（制品只依赖轮 1 STATIC 后的 master 工作区，
+     *                    跳编译把单仓构建从分钟级压到秒级）。SKIPPED 保留 lastCompiledStatus 原值。
+     */
+    public boolean buildOne(IndexRepo repo, String trigger, boolean skipCompile) {
         long startedAt = System.currentTimeMillis();
         String repoCode = repo.getRepoCode();
         String commitBefore = repo.getLastIndexedCommit();
@@ -472,7 +493,7 @@ public class IndexBuildService {
                     indexType = "STATIC";
                     lines = sr.lines;
                     // ── 轮2：编译附带对照（尽力而为，编译失败不回滚主索引）──
-                    String sidecar = runCompiledSidecar(repo, trigger, dir);
+                    String sidecar = runCompiledSidecar(repo, trigger, skipCompile, dir);
                     if (sidecar.startsWith("FAILED")) {
                         compiledStatus = "FAILED";
                         compiledError = sidecar.substring("FAILED:".length()).trim();
@@ -587,6 +608,8 @@ public class IndexBuildService {
             registryStore.appendBuildLog(entry);
             log.info("[IndexBuild] repo={} SUCCESS({}) ref={} commit={} lines={} in {}ms",
                     repoCode, indexType, resolvedRef, targetSha, lines, finishedAt - startedAt);
+            // master 工作区即最新，顺手异步打包纯内容制品（串行队列，失败不影响构建结果）
+            artifactService.submitBuild(repoCode, targetSha);
             fireBuildFinished(repoCode, true);
             return true;
         } catch (Exception e) {
@@ -656,8 +679,8 @@ public class IndexBuildService {
      * SCHEDULE 且上次编译失败时返回 "SKIPPED"（省 mvn 数分钟，MANUAL/INIT 永远重试——
      * 业务侧修复依赖后人工 rebuild 即可补对照产物）；成功返回 "SUCCESS"。
      */
-    private String runCompiledSidecar(IndexRepo repo, String trigger, File dir) {
-        if ("SCHEDULE".equals(trigger) && "FAILED".equals(repo.getLastCompiledStatus())) {
+    private String runCompiledSidecar(IndexRepo repo, String trigger, boolean skipCompile, File dir) {
+        if (skipCompile || ("SCHEDULE".equals(trigger) && "FAILED".equals(repo.getLastCompiledStatus()))) {
             return "SKIPPED";
         }
         String repoCode = repo.getRepoCode();
@@ -702,8 +725,8 @@ public class IndexBuildService {
         cmd.add("clean");
         cmd.add("compile");
         cmd.add("-B");
-        // -U 强刷 SNAPSHOT/失败缓存
-        // 会被 Maven 本地仓库缓存
+        // -U 强刷 SNAPSHOT/失败缓存：首次解析失败的 SNAPSHOT（含 parent pom 那种）
+        // 会被 Maven 本地仓库缓存 24h 不再重试，必须 -U 才能恢复（实测不加 -U 恒 exit=1）
         cmd.add("-U");
         cmd.add("-DskipTests");
         cmd.add("-Dmaven.test.skip=true");
@@ -861,9 +884,16 @@ public class IndexBuildService {
                 return cmd.trim();
             }
             File nodeBin = new File(binRoot, "node-dist/node");
-            if (!nodeBin.exists() || nodeBin.length() == 0L) {
+            File nodeMarker = new File(binRoot, "node-dist/.node-version");
+            if (!nodeBin.exists() || nodeBin.length() == 0L
+                    || !NODE_BIN_VERSION.equals(readSmallText(nodeMarker))) {
+                // NAS 卷跨部署持久：残留旧版本二进制必须显式清除，否则仅判 exists 会沿用旧 node
+                if (nodeBin.exists() && !nodeBin.delete()) {
+                    throw new IllegalStateException("cannot replace stale node binary: " + nodeBin);
+                }
                 unzipResource(NODE_BIN_RESOURCE, new File(binRoot, "node-dist"));
                 nodeBin.setExecutable(true, false);
+                writeSmallText(nodeMarker, NODE_BIN_VERSION);
             }
             frontendToolchainStatus = "node-ok:" + nodeBin.getAbsolutePath() + ",script-ok";
             return nodeBin.getAbsolutePath();
@@ -886,6 +916,39 @@ public class IndexBuildService {
         } finally {
             out.close();
             in.close();
+        }
+    }
+
+    /** 读小文本文件（marker 用）；不存在/读失败返回 null。 */
+    private static String readSmallText(File f) {
+        if (!f.isFile()) {
+            return null;
+        }
+        try {
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            java.io.FileInputStream in = new java.io.FileInputStream(f);
+            try {
+                byte[] buf = new byte[256];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    bos.write(buf, 0, n);
+                }
+            } finally {
+                in.close();
+            }
+            return new String(bos.toByteArray(), java.nio.charset.StandardCharsets.UTF_8).trim();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** 写小文本文件（marker 用，覆盖式）。 */
+    private static void writeSmallText(File f, String s) throws Exception {
+        java.io.FileOutputStream out = new java.io.FileOutputStream(f);
+        try {
+            out.write(s.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        } finally {
+            out.close();
         }
     }
 

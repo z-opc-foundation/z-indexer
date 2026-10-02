@@ -206,7 +206,9 @@ public class RegistryStore {
                 root.put("schemaVersion", 1);
                 JsonArray arr = new JsonArray();
                 for (IndexRepo r : repos.values()) {
-                    arr.add(r);
+                    // POJO 必须先转 JsonObject：JsonArray 对未知类型直接 toString，
+                    // 落盘得到 "IndexRepo@15db9742" 这类碎片，registry.json 再也读不回来
+                    arr.add(JsonUtil.parseObject(JsonUtil.toJson(r)));
                 }
                 root.put("repos", arr);
                 BufferedWriter writer = new BufferedWriter(

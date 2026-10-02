@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/index/redis")
 public class RedisProbeController {
 
-    private static final String PROBE_KEY = "ft-indexer:redis-probe";
+    private static final String PROBE_KEY = "z-indexer:redis-probe";
 
     @Autowired(required = false)
     private StringRedisTemplate stringRedisTemplate;

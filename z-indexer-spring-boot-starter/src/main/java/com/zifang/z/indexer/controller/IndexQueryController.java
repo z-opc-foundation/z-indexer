@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 索引查询 REST API（供 galaxy-proxy 工具 / agent / 排查脚本消费）。
+ * 索引查询 REST API（供 agent / 排查脚本 / 代码问答工具消费）。
  * <p>统一返回 {@code {"ok": true/false, ...}}。
  */
 @RestController
