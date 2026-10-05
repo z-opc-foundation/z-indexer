@@ -538,6 +538,8 @@ public class IndexBuildService {
 
             // 5. 原子替换 + meta
             File target = indexFile(repoCode);
+            long expectBytes = tmpIndex.length();
+            forceCommit(tmpIndex);
             if (!tmpIndex.renameTo(target)) {
                 target.delete();
                 if (!tmpIndex.renameTo(target)) {
@@ -545,6 +547,18 @@ public class IndexBuildService {
                     fail(repo, entry, startedAt, "atomic replace failed for " + target.getAbsolutePath());
                     return false;
                 }
+            }
+            if (target.length() != expectBytes) {
+                // rename 后 server 端字节数与写入端不符 = NFS 上数据未 COMMIT 落地，
+                // 此时落盘的是一份静默损坏的索引，而 meta.lines 记的是 rename 前的行数，
+                // 两者对不上且无人会发现。宁可报失败让下轮重建。
+                long actual = target.length();
+                target.delete();
+                restorePom(dir);
+                fail(repo, entry, startedAt, "index truncated after atomic replace (expected "
+                        + expectBytes + " bytes, got " + actual + ") for "
+                        + target.getAbsolutePath());
+                return false;
             }
             long finishedAt = System.currentTimeMillis();
             JsonObject meta = new JsonObject();
@@ -700,11 +714,19 @@ public class IndexBuildService {
                 return "FAILED:no index lines produced (pom inject not effective?)";
             }
             File target = compiledFile(repoCode);
+            long expectBytes = tmp.length();
+            forceCommit(tmp);
             if (!tmp.renameTo(target)) {
                 target.delete();
                 if (!tmp.renameTo(target)) {
                     return "FAILED:atomic replace failed for " + target.getName();
                 }
+            }
+            if (target.length() != expectBytes) {
+                long actual = target.length();
+                target.delete();
+                return "FAILED:compiled index truncated after atomic replace (expected "
+                        + expectBytes + " bytes, got " + actual + ")";
             }
             repo.setLastCompiledLines(n);
             return "SUCCESS";
@@ -1028,6 +1050,48 @@ public class IndexBuildService {
         registryStore.appendBuildLog(entry);
         log.error("[IndexBuild] repo={} FAILED: {}", repo.getRepoCode(), message);
         fireBuildFinished(repo.getRepoCode(), false);
+    }
+
+    /**
+     * rename 前强制 NFS COMMIT。
+     * <p>
+     * {@code FileOutputStream.close()} 只把数据刷到 client 缓冲；reposRoot 挂在
+     * ReadWriteMany NAS 上，rename 是独立的元数据操作，可能先于数据落 server，
+     * 于是 {@code rename} 成功而 server 端看到 0 字节文件。
+     * 这个坑本仓已在 {@code ArtifactService} 实测踩到（几十 MB 制品 rename 后
+     * Content-Length=0）并用 {@code fos.getFD().sync()} 修掉；索引产物走的是
+     * 同一种"写 tmp → rename"的形状，此前漏了同一道 COMMIT。
+     * <p>
+     * 这里以追加模式重开一次再 sync：目的是对该 inode 发 NFS COMMIT，
+     * 不写入任何字节，文件内容不受影响。
+     * <p>
+     * 追加模式会在文件不存在时<b>创建</b>它，所以先挡一道：
+     * 不存在的 / 空文件没有可 COMMIT 的数据，顺手凭空造出一个 0 字节
+     * {@code .tmp-<code>.jsonl} 只会污染 indexer 目录并误导后续排障。
+     *
+     * @return true=已 COMMIT；false=无需或无法 COMMIT（交由调用方靠 rename 后字节数校验兜底）
+     */
+    static boolean forceCommit(File f) {
+        if (f == null || !f.isFile() || f.length() == 0L) {
+            return false;
+        }
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(f, true);
+            fos.getFD().sync();
+            return true;
+        } catch (Exception e) {
+            log.warn("[IndexBuild] force commit failed for {}: {}", f, e.getMessage());
+            return false;
+        } finally {
+            if (fos != null) {
+                try {
+                    fos.close();
+                } catch (Exception ignore) {
+                    // close 失败不影响已发出的 COMMIT
+                }
+            }
+        }
     }
 
     private static long countLines(File file) throws IOException {
