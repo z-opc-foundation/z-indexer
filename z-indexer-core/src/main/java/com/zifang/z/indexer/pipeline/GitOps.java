@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.URI;
-import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -97,24 +96,41 @@ public class GitOps {
         return lastLsRemoteError;
     }
 
-    /** 从 URL userinfo 提取凭证（https://user:token@host/...），匿名返回 null。 */
-    private static CredentialsProvider credentialsOf(String url) {
+    /**
+     * 取出 URL userinfo 中<b>已解码</b>的 {@code user:password}（包级可见以便测试）。
+     * <p>
+     * {@link URI#getUserInfo()} 返回的就是解码后的分量，<b>不能</b>再叠一层
+     * {@code URLDecoder.decode}：
+     * <ul>
+     *   <li>二次解码会把 {@code %252B} 这类真值再剥一层，令牌被改写成另一个值；</li>
+     *   <li>{@code URLDecoder} 按 application/x-www-form-urlencoded 规则把 {@code '+'} 当空格，
+     *       令牌里的 {@code '+'} 会被换成 {@code ' '}，认证直接失败
+     *       （实测 {@code tok+en123} → {@code "tok en123"}）。</li>
+     * </ul>
+     *
+     * @return 解码后的 userinfo；URL 无 userinfo 或格式非标准时返回 null
+     */
+    static String userInfoOf(String url) {
         if (url == null) {
             return null;
         }
         try {
-            URI u = new URI(url);
-            String userInfo = u.getUserInfo();
-            if (userInfo != null) {
-                int c = userInfo.indexOf(':');
-                if (c > 0) {
-                    return new UsernamePasswordCredentialsProvider(
-                            URLDecoder.decode(userInfo.substring(0, c), "UTF-8"),
-                            URLDecoder.decode(userInfo.substring(c + 1), "UTF-8"));
-                }
-            }
+            return new URI(url).getUserInfo();
         } catch (Exception ignore) {
             // URL 无 userinfo 或非标准格式，走匿名
+            return null;
+        }
+    }
+
+    /** 从 URL userinfo 提取凭证（https://user:token@host/...），匿名返回 null。 */
+    private static CredentialsProvider credentialsOf(String url) {
+        String userInfo = userInfoOf(url);
+        if (userInfo != null) {
+            int c = userInfo.indexOf(':');
+            if (c > 0) {
+                return new UsernamePasswordCredentialsProvider(
+                        userInfo.substring(0, c), userInfo.substring(c + 1));
+            }
         }
         return null;
     }
@@ -159,7 +175,7 @@ public class GitOps {
             if (tagPattern && !wildcardMatch(name, value)) {
                 continue;
             }
-            if (best == null || tagSortKey(name).compareTo(tagSortKey(normalizeRefName(best.getRef()))) > 0) {
+            if (isBetterTag(name, best == null ? null : normalizeRefName(best.getRef()))) {
                 best = new RemoteRef(peeledSha(r), r.getName());
             }
         }
@@ -224,13 +240,32 @@ public class GitOps {
     /**
      * tag 排序 key：优先抽 tag 名中的 14 位时间戳（matrix 发版 tag 含 yyyyMMddHHmmss），
      * 抽不到则用整个 tag 名字典序。
+     * <p>
+     * key 首位是分组标记：带时间戳的 {@code '1'}、不带时间戳的 {@code '0'}，
+     * 于是"抽不到时间戳"= 排在所有带时间戳的 tag 之后，同组内仍按 tag 名字典序。
+     * <p>
+     * <b>不能</b>把裸 tag 名直接和 {@code "yyyyMMddHHmmss|name"} 比：数字(0x30~0x39)
+     * 小于任何字母，于是 {@code v1.2.3-20240102030405} 会输给 {@code v1.0.0}
+     * （实测），"带时间戳优先"被反转成"带时间戳垫底"，选出的 tag 不是最新的。
      */
     private static String tagSortKey(String tagName) {
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{14})").matcher(tagName);
         if (m.find()) {
-            return m.group(1) + "|" + tagName;
+            return "1" + m.group(1) + "|" + tagName;
         }
-        return tagName;
+        return "0" + tagName;
+    }
+
+    /**
+     * tag 择优判据（包级可见以便测试）：{@link #tagSortKey} 字典序大者胜；
+     * 尚无当前最优者则直接胜出。
+     *
+     * @param candidate   已 {@link #normalizeRefName} 规范化的候选 tag 名
+     * @param currentBest 已规范化的当前最优 tag 名，无则 null
+     */
+    static boolean isBetterTag(String candidate, String currentBest) {
+        return currentBest == null
+                || tagSortKey(candidate).compareTo(tagSortKey(currentBest)) > 0;
     }
 
     /** clone 到目标目录（已存在则跳过，由调用方判断）。 */
