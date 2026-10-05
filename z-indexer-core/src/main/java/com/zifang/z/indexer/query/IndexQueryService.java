@@ -118,11 +118,9 @@ public class IndexQueryService {
     }
 
     private void triggerReload(final String repoCode, final long diskMillis) {
-        Long known = loadedFileMillis.get(repoCode);
-        if (known != null && known == diskMillis) {
+        if (!markReloadScheduled(repoCode, diskMillis)) {
             return; // 已在重建或已完成
         }
-        loadedFileMillis.put(repoCode, diskMillis);
         reloadExecutor.submit(new Runnable() {
             public void run() {
                 try {
@@ -135,6 +133,31 @@ public class IndexQueryService {
                 }
             }
         });
+    }
+
+    /**
+     * 热重建去重闸：同一 {@code repoCode + diskMillis} 只有第一次返回 true。
+     * <p>
+     * 「检查 + 记账」必须在同一个临界区里。{@code loadedFileMillis} 是普通
+     * {@link HashMap}，{@link #put}/{@link #shrinkTo}/{@link #invalidate} 都在
+     * {@code lruLock} 下改它，而本方法跑在<b>请求线程</b>上（{@link #getOrLoad} 的
+     * 入口），若无锁则与那三处并发访问同一张表：去重会漏（同一 millis 重复排多次
+     * 热重建，而 {@code RepoIndex.load} 要把整个索引读进内存），更坏的是
+     * HashMap 在并发 put/扩容下结构损坏。
+     * <p>
+     * 包级可见以便直接测这条去重不变量。
+     *
+     * @return true=本次调用赢得调度权，应提交一次热重建
+     */
+    boolean markReloadScheduled(String repoCode, long diskMillis) {
+        synchronized (lruLock) {
+            Long known = loadedFileMillis.get(repoCode);
+            if (known != null && known == diskMillis) {
+                return false;
+            }
+            loadedFileMillis.put(repoCode, diskMillis);
+            return true;
+        }
     }
 
     /** 主动失效（构建完成后由调度器调用，等价于下次查询时懒检查）。 */
