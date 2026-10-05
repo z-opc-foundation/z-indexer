@@ -64,6 +64,33 @@ public class RegistryStore {
         loadStatuses();
     }
 
+    /** repoCode 允许的字符集（同时用于文件名与目录名，故不含路径分隔符）。 */
+    static final String REPO_CODE_PATTERN = "[A-Za-z0-9._-]+";
+
+    /**
+     * 校验 repoCode 可安全用作文件名 / 目录名。
+     * <p>
+     * 字符集之外<b>必须</b>显式排除 {@code "."} 与 {@code ".."}：二者完全落在
+     * {@link #REPO_CODE_PATTERN} 内，但 {@code new File(reposDir, "..")} 规范化后
+     * 就是 reposRoot 本身（实测 escaped），工作副本目录会被指到 indexer 数据根之外 ——
+     * 而 clone 目标、indexer/*.jsonl、build-logs/*.log、locks/*.lock、status/*.json
+     * 等十余处路径都用 repoCode 直接拼。
+     *
+     * @throws IllegalArgumentException 非法时
+     */
+    static void validateRepoCode(String code) {
+        if (code == null || code.trim().isEmpty()) {
+            throw new IllegalArgumentException("repoCode required");
+        }
+        if (!code.matches(REPO_CODE_PATTERN)) {
+            throw new IllegalArgumentException("repoCode only allow [A-Za-z0-9._-]: " + code);
+        }
+        if (".".equals(code) || "..".equals(code)) {
+            throw new IllegalArgumentException(
+                    "repoCode must not be a relative path segment (. or ..): " + code);
+        }
+    }
+
     private void load() {
         try {
             if (registryFile.exists()) {
@@ -73,9 +100,20 @@ public class RegistryStore {
                 if (arr != null) {
                     for (int i = 0; i < arr.size(); i++) {
                         IndexRepo repo = JsonUtil.fromJson(arr.get(i).toString(), IndexRepo.class);
-                        if (repo != null && repo.getRepoCode() != null) {
-                            repos.put(repo.getRepoCode(), repo);
+                        if (repo == null || repo.getRepoCode() == null) {
+                            continue;
                         }
+                        try {
+                            validateRepoCode(repo.getRepoCode());
+                        } catch (IllegalArgumentException e) {
+                            // registry.json 是可手工编辑的静态配置真源，非法条目跳过并告警：
+                            // 不能让一条坏数据把整个 indexer 拖到启动失败，也不能让它
+                            // 带着越界的 repoCode 进内存表被轮询器当真执行。
+                            // 跳过后下次 persistRegistry 会把该条目从磁盘抹掉（自愈）。
+                            log.warn("[RegistryStore] skip illegal repo entry: {}", e.getMessage());
+                            continue;
+                        }
+                        repos.put(repo.getRepoCode(), repo);
                     }
                 }
                 log.info("[RegistryStore] loaded {} repos from {}", repos.size(), registryFile.getAbsolutePath());
@@ -147,12 +185,7 @@ public class RegistryStore {
     public IndexRepo upsert(IndexRepo input) {
         synchronized (lock) {
             String code = input.getRepoCode();
-            if (code == null || code.trim().isEmpty()) {
-                throw new IllegalArgumentException("repoCode required");
-            }
-            if (!code.matches("[A-Za-z0-9._-]+")) {
-                throw new IllegalArgumentException("repoCode only allow [A-Za-z0-9._-]: " + code);
-            }
+            validateRepoCode(code);
             if (input.getGitUrl() == null || input.getGitUrl().trim().isEmpty()) {
                 throw new IllegalArgumentException("gitUrl required");
             }
