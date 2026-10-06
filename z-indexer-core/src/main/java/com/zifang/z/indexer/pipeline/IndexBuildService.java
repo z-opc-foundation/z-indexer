@@ -5,6 +5,7 @@ import com.zifang.util.json.model.JsonObject;
 import com.zifang.z.indexer.IndexerConfig;
 import com.zifang.z.indexer.query.IndexQueryService;
 import com.zifang.z.indexer.registry.BuildLogEntry;
+import com.zifang.z.indexer.registry.GitUrlMasker;
 import com.zifang.z.indexer.registry.IndexRepo;
 import com.zifang.z.indexer.registry.RegistryStore;
 import org.slf4j.Logger;
@@ -563,7 +564,7 @@ public class IndexBuildService {
             long finishedAt = System.currentTimeMillis();
             JsonObject meta = new JsonObject();
             meta.put("repoCode", repoCode);
-            meta.put("gitUrl", repo.getGitUrl());
+            meta.put("gitUrl", GitUrlMasker.mask(repo.getGitUrl()));
             meta.put("ref", resolvedRef);
             meta.put("commit", targetSha);
             meta.put("builtAt", finishedAt);

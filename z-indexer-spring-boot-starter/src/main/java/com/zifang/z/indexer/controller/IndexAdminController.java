@@ -6,6 +6,7 @@ import com.zifang.z.indexer.pipeline.GitOps;
 import com.zifang.z.indexer.pipeline.IndexBuildService;
 import com.zifang.z.indexer.query.IndexQueryService;
 import com.zifang.z.indexer.registry.IndexRepo;
+import com.zifang.z.indexer.registry.GitUrlMasker;
 import com.zifang.z.indexer.registry.RegistryStore;
 import com.zifang.z.indexer.schedule.IndexSyncRunner;
 import org.slf4j.Logger;
@@ -325,7 +326,7 @@ public class IndexAdminController {
         long finishedAt = System.currentTimeMillis();
         JsonObject meta = new JsonObject();
         meta.put("repoCode", repoCode);
-        meta.put("gitUrl", repo.getGitUrl());
+        meta.put("gitUrl", GitUrlMasker.mask(repo.getGitUrl()));
         meta.put("ref", resolvedRef);
         meta.put("commit", remote.getSha());
         meta.put("builtAt", finishedAt);
@@ -550,7 +551,7 @@ public class IndexAdminController {
         long finishedAt = System.currentTimeMillis();
         JsonObject meta = new JsonObject();
         meta.put("repoCode", repoCode);
-        meta.put("gitUrl", repo.getGitUrl());
+        meta.put("gitUrl", GitUrlMasker.mask(repo.getGitUrl()));
         meta.put("ref", resolvedRef);
         meta.put("commit", remote.getSha());
         meta.put("builtAt", finishedAt);
@@ -604,7 +605,7 @@ public class IndexAdminController {
         Map<String, Object> m = new LinkedHashMap<String, Object>();
         m.put("repoCode", repo.getRepoCode());
         m.put("repoName", repo.getRepoName());
-        m.put("gitUrl", repo.getGitUrl());
+        m.put("gitUrl", GitUrlMasker.mask(repo.getGitUrl()));
         m.put("refMode", repo.getRefMode());
         m.put("refValue", repo.getRefValue());
         m.put("buildType", repo.getBuildType());

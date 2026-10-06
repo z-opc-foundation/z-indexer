@@ -2,6 +2,7 @@ package com.zifang.z.indexer.pipeline;
 
 import com.zifang.z.indexer.IndexerConfig;
 import com.zifang.z.indexer.registry.IndexRepo;
+import com.zifang.z.indexer.registry.GitUrlMasker;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.LsRemoteCommand;
 import org.eclipse.jgit.api.ResetCommand;
@@ -151,7 +152,8 @@ public class GitOps {
             refs = cmd.call();
         } catch (Exception e) {
             lastLsRemoteError = "ls-remote error: " + e.getMessage();
-            log.warn("[GitOps] ls-remote failed for {} (mode={} value={}): {}", gitUrl, mode, value, lastLsRemoteError);
+            log.warn("[GitOps] ls-remote failed for {} (mode={} value={}): {}",
+                    GitUrlMasker.mask(gitUrl), mode, value, lastLsRemoteError);
             return null;
         }
         if (branchMode) {
@@ -162,7 +164,8 @@ public class GitOps {
                 }
             }
             lastLsRemoteError = "refs/heads/" + value + " not found (ls-remote ok, " + refs.size() + " heads)";
-            log.warn("[GitOps] ls-remote no match for {} (mode={} value={})", gitUrl, mode, value);
+            log.warn("[GitOps] ls-remote no match for {} (mode={} value={})",
+                    GitUrlMasker.mask(gitUrl), mode, value);
             return null;
         }
         // tag 模式：全 tag 后按 pattern / 字典序取最新
@@ -181,7 +184,8 @@ public class GitOps {
         }
         if (best == null) {
             lastLsRemoteError = "no tag matches pattern: " + value + " (total " + refs.size() + " tags)";
-            log.warn("[GitOps] no tag matches {} for {} (total {} tags)", value, gitUrl, refs.size());
+            log.warn("[GitOps] no tag matches {} for {} (total {} tags)",
+                    value, GitUrlMasker.mask(gitUrl), refs.size());
         }
         return best;
     }

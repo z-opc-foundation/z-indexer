@@ -215,6 +215,44 @@ java -jar z-indexer-server/target/z-indexer-server-1.0.0.jar \
 
 冷仓首查会返回 loading 提示而非阻塞等待（`IndexQueryService` 异步预热，稍后重试即热）。
 
+### 🔐 git 地址脱敏（7 个出口）
+
+`IndexRepo` 没有独立的 token 字段：仓库凭证一律内嵌在 gitUrl 的 userinfo 里
+（`https://user:token@host/org/repo.git`，由 `GitOps#credentialsOf` 解析成 `UsernamePasswordCredentialsProvider`）。
+也就是说**任何把 gitUrl 原样输出的地方都是一次凭证泄露**，而它分散在 7 个互不相干的出口：
+
+| # | 出口 | 位置 | 面 |
+|---|------|------|-----|
+| 1 | 管理 API 响应体 | `IndexAdminController#toMap`（5 个端点的公共出口） | 任何能调管理 API 的人 |
+| 2 | `meta.json` | `IndexAdminController#uploadIndex` | 产物目录，随制品分发 |
+| 3 | `meta.json` | `IndexAdminController#uploadFinish` | 同上 |
+| 4 | `meta.json` | `IndexBuildService#buildOne` | 同上 |
+| 5 | 失败日志 | `GitOps#lsRemoteRef`（ls-remote 失败） | 日志系统的留存与访问面都更大 |
+| 6 | 失败日志 | `GitOps#lsRemoteRef`（无匹配） | 同上 |
+| 7 | 失败日志 | `GitOps#lsRemoteRef`（tag 无匹配） | 同上 |
+
+改前这 7 处全是 `repo.getGitUrl()` / `gitUrl` 原样写出。现在统一走 `GitUrlMasker.mask()`
+（core 的 `registry` 包），规则是**只掩密码段**：用户名 / 主机 / 端口 / 路径逐字保留——
+它们是日志的诊断价值所在（"是哪个仓库、哪个账号"），真正秘密的只是 PAT / deploy token 那一段。
+
+判定不了凭证时**原样返回、不做任何改写**：scp 形式 `git@host:org/repo.git`（`@` 是用户分隔符不是
+userinfo，被改写会让这条地址直接不可用）、`ssh://git@host/...`（只有用户名没有密码段）、
+匿名可读仓库（司内 gitlab 默认形态）都不动。脱敏只该动凭证，不该顺手规范化 URL。
+
+**实测过的一条边界**：JGit 自己在失败路径上已经会把密码段去掉——实测对一个
+`https://deploybot:<token>@127.0.0.1:1/acme/repo.git` 的 ls-remote 与 clone，
+错误文本是 `https://deploybot@127.0.0.1:1/acme/repo.git`，不含 token。
+所以 `lastLsRemoteError` / `lastErrorMsg` / build-log 那条回吐链**不是**泄露面，
+不需要再套一层文本脱敏（本仓不依赖 JGit 的这个行为，但也确实没有实测到它泄露）。
+
+**配套的判据**：`GitUrlMaskerTest`（10 法，逐形态断言**精确字符串**而不是"不含 token"——
+一个把整条 URL 换成 `***` 的实现也能满足后者，但会让日志失去诊断价值）、
+`GitUrlLeakGuardTest` + `IndexAdminGitUrlLeakTest`（源码普查，把"所有 `"gitUrl", X` 里的 X
+必须含 mask"变成不变量，并按出口数配平：core 侧 1+3、starter 侧 3）。
+
+**仍未解决、不在本节范围**：本仓的管理端点**零鉴权**（`/index/admin/**` 任何人可调）。
+是否由网关统一鉴权取决于部署拓扑，本仓无从判断，需要部署侧拍板。
+
 ---
 
 ## 🧪 测试
@@ -224,9 +262,9 @@ mvn test                                     # TestNG，surefire 版本走父链
 mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过）
 ```
 
-实测的测试资产（2026-10-02 本机 `mvn -B -o clean test`：**core 12 个 / starter 3 个，0 failures 0 errors，3 skipped**）：
+实测的测试资产（2026-10-06 本机 `mvn -o test`：**core 14 类 71 法 / starter 2 类 6 法，0 failures 0 errors，3 skipped**）：
 
-- `z-indexer-core`（7 类 12 法）：
+- `z-indexer-core`（14 类 71 法）：
   - `IndexerE2eTest`（3 个 `@Test`：`fullPipeline` / `dualTrackFallback` / `frontendPipeline`，真实 git +
     真实 mvn；默认 `SkipException` 跳过 → 上面那 3 个 skipped 就是它们，需 `-Dz.indexer.e2e=true` 且本机 mvn/git 可用）
   - `RepoIndexTest#loadDedupsRepeatedStringsAndKeepsSemantics`（`assertSame` 锁死字符串复用，防无声回退）
@@ -239,9 +277,14 @@ mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过
   - `PomIndexerPatcherTest`（4 法：注入必带 `annotationProcessorPaths` + `-A` 参数；仓库本 pom 的
     `<proc>none</proc>`——build/plugins 与 pluginManagement 两处——必须被剥掉，javac 的 `-proc:none`
     优先于显式 processorpath，不剥则处理器整体静默不跑、构建零告警零产物；重复 patch 幂等且 `-A` 刷新）
-- `z-indexer-spring-boot-starter`：`IndexerAutoConfigurationSmokeTest`（3 个 `@Test`，用
-  `AnnotationConfigApplicationContext` 在 `refresh()` 阶段暴露装配环，不拉 Web/配置中心；
-  `restSurfaceWired` 额外守 REST 面与 `getArtifactService()`，因为制品 bean 缺失时是 500 而不是 404）。
+  - `GitUrlMaskerTest`（10 法）——见下方「git 地址脱敏」
+  - `GitUrlLeakGuardTest`（2 法：core 侧 2 个出口的源码普查 + `GitOps` 三处日志逐条语句判定）——见下方「git 地址脱敏」
+- `z-indexer-spring-boot-starter`（2 类 6 法）：
+  - `IndexerAutoConfigurationSmokeTest`（3 个 `@Test`，用
+    `AnnotationConfigApplicationContext` 在 `refresh()` 阶段暴露装配环，不拉 Web/配置中心；
+    `restSurfaceWired` 额外守 REST 面与 `getArtifactService()`，因为制品 bean 缺失时是 500 而不是 404）。
+  - `IndexAdminGitUrlLeakTest`（3 法：`toMap` 反射直调 + 6 种 gitUrl 形态表驱动 +
+    源码普查钉住 3 个出口的配平）。
 - 轮 2 编译产物与轮 1 的逐行对照（replay）没有自动化测试：它必须拿一个真实业务仓跑 `mvn`，
   在开源/无外网环境下必然红，故只由 `IndexerE2eTest#dualTrackFallback` 在显式开关下覆盖"轮 2 失败不影响主索引 SUCCESS"这条不变式。
 - `RedisStarterSmokeMain` 是**手工排障 main**（非 `@Test`，不进 CI），参数全部走
