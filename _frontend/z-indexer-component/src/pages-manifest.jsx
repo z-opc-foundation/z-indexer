@@ -20,7 +20,7 @@ export const menuItems = [
     { key: '/z-indexer/query', label: '符号检索', icon: <SearchOutlined /> },
 ]
 
-export const routeTable = [
+export const routes = [
     { path: '/z-indexer/home', Component: HomePage },
     { path: '/z-indexer/overview', Component: Overview },
     { path: '/z-indexer/repos', Component: Repos },
