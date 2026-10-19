@@ -16,14 +16,14 @@ Node + Babel），产物落成 JSONL 倒排索引常驻内存，对外只给四�
 | **仓库** | `z-indexer`（`git@github.com:z-opc-foundation/z-indexer.git`，分支 `main`） |
 | **Maven 坐标** | `io.github.yuku123:z-indexer:${revision}`（根 POM `<packaging>pom</packaging>`） |
 | **当前版本** | `<revision>` = `1.0.0`（CI-friendly versions + flatten-maven-plugin，`flattenMode=oss`） |
-| **父项目** | `io.github.yuku123:z-boot-parent:1.0.21`（`<relativePath/>` 留空，parent 在 repo1 不在磁盘；其自身 parent 为 `z-boot-dependencies:1.0.20`，实测中央发布 pom） |
-| **Maven Central** | **已发布 1.0.0**（2026-09-30 现测 repo1 均 200）：`z-indexer:1.0.0`（pom）、`z-indexer-core:1.0.0`（pom+jar）、`z-indexer-spring-boot-starter:1.0.0`（pom+jar）；`1.0.1` 全部 404；`z-indexer-server` 目录整体 404（设计上永不发布，见下） |
+| **父项目** | `io.github.yuku123:z-boot-parent:1.1.0`（`<relativePath/>` 留空，parent 在 repo1 不在磁盘；其自身 parent 为 `z-boot:1.0.19`，实测中央发布 pom） |
+| **Maven Central** | **已发布 1.0.0**（2026-10-20 现测 repo1 均 200）：`z-indexer:1.0.0`（pom）、`z-indexer-core:1.0.0`（pom+jar）、`z-indexer-spring-boot-starter:1.0.0`（pom+jar）；三者的 `maven-metadata.xml` 都只列 `1.0.0`；`1.0.1` 全部 404；`z-indexer-server` 目录整体 404（设计上永不发布，见下） |
 | **模块数** | 3：`z-indexer-core` / `z-indexer-spring-boot-starter` / `z-indexer-server` |
 | **默认端口** | 本仓 `application.yaml` **未设** `server.port`（实测无该键），端口由部署侧下发；仓内唯一显式端口配置是测试 main 里的 `server.port=0`（随机口） |
 | **context-path** | 由 `bootstrap.yaml` 的 `z-opc.application.name=z-indexer-indexer` 决定（该文件注释：不设则 context-path 为 `/unknown`，网关路由 404） |
 | **运行口径** | Java 8（父链 `java.version=1.8`、`maven.compiler.source/target=8`）· Spring Boot 2.7.18（父链 `spring-boot.version`） |
 | **许可证声明** | 根 POM `<licenses>` 声明 MIT License；**仓库根无 `LICENSE` 文件**（实测），故本 README 不设 License 章节 |
-| **最近更新** | 2026-09-30（仓内最后一次提交 2026-09-29 `build(pom): 消费入口抬到 z-boot-parent:1.0.21`） |
+| **最近更新** | 2026-10-11（仓内最后一次提交 `cf3229e` "build(deps): z-frontend-common 1.0.0 独立仓发版,AppLayout 切回 npm 契约"） |
 
 ---
 
@@ -33,7 +33,7 @@ Node + Babel），产物落成 JSONL 倒排索引常驻内存，对外只给四�
 |------|----------|------|
 | 仓库注册表（零 DB） | `z-indexer-core` `registry/RegistryStore`、`registry/IndexRepo` | `indexer/registry.json` 原子替换写 + 每仓 `indexer/status/<repo>.json` + `build-log.jsonl` 全量审计；`refMode` 支持 `BRANCH` / `TAG_PATTERN` / `TAG_LATEST`；`language` 支持 `java` / `frontend`（留空自动探测 pom.xml / package.json） |
 | 远端变更检测与同步 | `pipeline/GitOps` | 纯 JGit 实现（`ls-remote` 零成本变更检测、clone、fetch+checkout+reset+clean），生产纯 JRE 容器无 `git` 命令也能跑；私有仓凭证经 gitUrl 的 userinfo 段注入（由注册表字段传入，本 README 不示例） |
-| 双轨索引构建 | `pipeline/IndexBuildService`（1018 行主编排）、`pipeline/PomIndexerPatcher`、`pipeline/StaticJavaIndexer`（2435 行） | 轮 1 免编译静态全量主索引（JavaParser，`indexType=STATIC`，秒级）；轮 2 编译附带对照产物 `<repo>.compiled.jsonl`（pom 注入 `com.zifang:code-indexer:1.0` 注解处理器 + mvn），轮 2 失败不影响主索引 SUCCESS；`static-fallback-enabled=false` 回退纯编译模式 |
+| 双轨索引构建 | `pipeline/IndexBuildService`（1146 行主编排）、`pipeline/PomIndexerPatcher`、`pipeline/StaticJavaIndexer`（2435 行） | 轮 1 免编译静态全量主索引（JavaParser，`indexType=STATIC`，秒级）；轮 2 编译附带对照产物 `<repo>.compiled.jsonl`（pom 注入 `com.zifang:code-indexer:1.0` 注解处理器 + mvn），轮 2 失败不影响主索引 SUCCESS；`static-fallback-enabled=false` 回退纯编译模式 |
 | 内置工具链自释放 | `IndexBuildService.ensureCodeIndexerJar/ensureMavenDist/ensureToolsJar/ensureFrontendToolchain` | 启动时把 `z-indexer-server/src/main/resources/bin/` 里的 maven 发行版、`tools.jar`、node 发行版、babel-parser、`frontend-indexer.cjs` 幂等释放到 `repos-root/bin/` |
 | 前端仓索引 | 同上 + `resources/bin/frontend-indexer.cjs` | Node 脚本扫描 TS/JS，输出与 Java 链路同 schema 的 def/call 行 |
 | 定时轮询重建 | `schedule/IndexSyncRunner` + starter `config/IndexerAutoConfiguration#scheduledPoll` | `fixedDelay` 语义（上一轮跑完再计时）；`BUILDING` 跳过、`FAILED` 每轮重试、`NEVER` 首建 |
@@ -53,10 +53,12 @@ Node + Babel），产物落成 JSONL 倒排索引常驻内存，对外只给四�
 
 ```
 z-indexer/
-├── pom.xml                              # 根聚合 POM：z-boot-parent:1.0.21 + <revision>1.0.0 + central profile
-├── _doc/                                # 文档收口目录（实测：当前为空目录，0 个文件）
-├── _frontend/
-│   └── README.md                        # 前端索引器说明（交付副本在 resources/bin/，本目录不被构建读取）
+├── pom.xml                              # 根聚合 POM：z-boot-parent:1.1.0 + <revision>1.0.0 + central profile
+├── _doc/                                # 文档收口目录（001_arch/ 内含项目总览 00-overview.md）
+├── _frontend/                           # 前端暂存位（不被 Maven 构建读取，20 个受控文件）
+│   ├── README.md                        # 前端索引器说明（交付副本在 resources/bin/，本目录不被构建读取）
+│   ├── z-indexer-component/             # 组件库（React + Vite）
+│   └── z-indexer-suit/                  # 控制台壳工程（React + Vite）
 ├── z-indexer-core/                      # 领域核心，不依赖 Spring（纯 POJO IndexerConfig）
 │   └── src/main/java/com/zifang/z/indexer/
 │       ├── IndexerConfig.java           # 核心配置 POJO
@@ -86,16 +88,16 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 | 层级 | 技术 / 版本 |
 |------|-------------|
 | 语言 / 运行时 | Java 8（父链下发 `maven.compiler.source/target=8`；JDK 9+ 上本仓 `java8-floor-on-jdk9plus` profile 强制 `release=8`） |
-| 框架 | Spring Boot 2.7.18（版本由 `z-boot-parent:1.0.21` 属性 `spring-boot.version` 供） |
+| 框架 | Spring Boot 2.7.18（版本由 `z-boot-parent:1.1.0` 属性 `spring-boot.version` 供） |
 | Git 客户端 | `org.eclipse.jgit:org.eclipse.jgit` **5.13.3.202401111512-r**（刻意不回地板的 5.13.4：JGit 6.x 基线 Java 11，5.13.4 那份 jar Build-Jdk-Spec=17，JDK 8 运行期 `NoSuchMethodError`） |
 | 静态解析 | `com.github.javaparser:javaparser-core` **3.26.4**（高于地板 3.23.1，回地板等于换实现） |
 | 日志 | `slf4j-api` **2.0.13**（不回 1.7.36：运行期绑定是 `log4j-slf4j2-impl`，属 SLF4J 2.x provider） |
-| JSON | `io.github.yuku123:z-util-parser-json`（已从 fastjson 迁移，提交 `e05395f`） |
+| JSON | `io.github.yuku123:z-util-parser-json`（已从 fastjson 迁移，提交 `e05395f`）——版本走父链 `z-util.version=1.0.19` |
 | 兄弟件 | `z-boot-config-starter` / `z-boot-gw-starter` / `z-boot-cache-starter`（聚合 starter，一行 import） |
 | 缓存客户端 | `spring-boot-starter-data-redis`（lettuce 连接池 + Redisson 默认） |
 | 测试 | TestNG **7.5.1**（7.6 起基线 Java 11；父链不供该格） |
 | 构建 | Maven · `flatten-maven-plugin`（`oss` 模式，剥 parent 链写面值）· `maven-deploy-plugin` 3.1.4（父链不管这件） |
-| z-util 版本 | 由父链的 `z-boot-fleet` 表供（实测 `z-boot-parent:1.0.21` 引 `z-boot-fleet:1.0.1`，表内 `z-util.version=1.0.14`、`z-indexer.version=1.0.0`） |
+| z-util 版本 | 由父链属性直接供（实测 `z-boot-parent:1.1.0` 的 `<z-util.version>=1.0.19`；`z-boot-fleet` / `z-boot-dependencies` 两个仓已退役，版本表并进 parent）。本仓自己的 `<z-indexer.version>` 槽位在 parent 1.1.0 里**不存在**（本仓坐标由根 POM 的 `${project.version}` 自钉） |
 
 本仓 `pom.xml` 只保留 **5 格刻意与父链不同值/父链不供** 的属性：`slf4j.version`、`jgit.version`、
 `javaparser.version`、`testng.version`、`maven-deploy-plugin.version`；其余第三方一律不在这钉版本。
@@ -156,7 +158,7 @@ Actuator 暴露：`management.endpoints.web.exposure.include=health,info,metrics
 mvn clean install -DskipTests
 ```
 
-若报解析不到 parent，先确认能拉到 `io.github.yuku123:z-boot-parent:1.0.21`（在 repo1，不在磁盘）。
+若报解析不到 parent，先确认能拉到 `io.github.yuku123:z-boot-parent:1.1.0`（在 repo1，不在磁盘）。
 
 ### 起进程（fat jar）
 
@@ -188,8 +190,10 @@ java -jar z-indexer-server/target/z-indexer-server-1.0.0.jar \
 
 ## 🔌 API
 
-四个 Controller 全在 `z-indexer-spring-boot-starter/.../controller/`，统一返回 `{"ok": true/false, ...}`；
+**5 个** Controller 全在 `z-indexer-spring-boot-starter/.../controller/`（`IndexAdmin` / `IndexQuery` / `IndexMonitor` / `IndexArtifact` / `RedisProbe`），
+共 **19** 个方法级端点（类级 `@RequestMapping` 5 个），统一返回 `{"ok": true/false, ...}`；
 下表为**类级前缀 + 方法级路径**的实测拼接，完整 URL 还要带上 context-path。
+复算：`grep -rhoE '@RequestMapping\(value' --include='*.java' . | wc -l` ⇒ `19`。
 
 | 方法与路径 | 说明 |
 |------------|------|
@@ -279,6 +283,15 @@ mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过
     优先于显式 processorpath，不剥则处理器整体静默不跑、构建零告警零产物；重复 patch 幂等且 `-A` 刷新）
   - `GitUrlMaskerTest`（10 法）——见下方「git 地址脱敏」
   - `GitUrlLeakGuardTest`（2 法：core 侧 2 个出口的源码普查 + `GitOps` 三处日志逐条语句判定）——见下方「git 地址脱敏」
+  - `GitOpsSelectionTest`（16 法：gitUrl userinfo 里的 `+` / 百分号编码 / `@` 解码边界，以及 tag 选取
+    ——带时间戳的 tag 优先于字典序更大的裸 tag、同时间戳回退 tag 名、裸 tag 仍按字典序而非语义版本）
+  - `RegistryStoreRepoCodeTest`（11 法：`repoCode` 白名单校验 —— `..` / `.` / 路径分隔符 / 空白 / 非法标点全拒，
+    另有"`..` 真能逃出 reposDir"与"load 跳过非法 repoCode / 损坏条目不抛"两条）
+  - `BuildLockManagerTest`（11 法：首个获取成功、同仓二次获取失败、不同仓互不阻塞、释放后可重取、
+    新锁不被抢、stale 锁可被接管、释放不删他人锁、损坏锁可清）
+  - `IndexQueryServiceReloadDedupTest`（5 法：同毫秒内只有首个调用者触发重建、跨毫秒再调度、
+    不同仓互不影响、并发调用者恰好选出一个）
+  - `IndexBuildServiceCommitTest`（4 法：commit 保留内容、大文件不被截断、缺文件报失败而不是抛异常、rename 保留字节数）
 - `z-indexer-spring-boot-starter`（2 类 6 法）：
   - `IndexerAutoConfigurationSmokeTest`（3 个 `@Test`，用
     `AnnotationConfigApplicationContext` 在 `refresh()` 阶段暴露装配环，不拉 Web/配置中心；
@@ -323,16 +336,16 @@ JDK 边）、`/index/repo/artifact`、`/index/monitor/health` 均实测 200。�
 
 ## 文档目录
 
-`_doc/` 目录**存在但为空**：实测 `find _doc -mindepth 1` 返回 0 条、`git ls-files _doc` 亦为空，
-即 002_项目文档收口规范要求的 `_doc/{001_arch,002_deploy,003_script,004_skill}` 四类标准文档槽
-**目前全部缺失**（架构总览、模块结构、接口清单、DB schema、部署 SQL、运维脚本、AI skill 均尚无文件），
-不存在可链接的真实文件，故本节不列链接以免留下断链。
+本项目文档统一收口在 `_doc/` 下（八类固定编号表，桶按需存在）:
 
-仓内当前唯一的文档文件是前端侧的说明：
+- [`_doc/001_arch/`](_doc/001_arch/) — 架构、接口、DB schema、协议、路线图
+
+其余标准桶（`002_deploy` / `003_script` / `004_skill` / `005_testing` / `006_release` / `007_backlog` / `008_troubleshooting`）
+目前均无内容，按规范「桶按需建」不建目录；补文档时按桶落盘并回到本节加链接。
+
+仓内另有一份前端侧的说明（紧贴代码的子模块 README，按规范保留原位）：
 
 - [`_frontend/README.md`](_frontend/README.md) — 前端工程索引器 `frontend-indexer.cjs` 的设计说明，
   并记录本目录只是编辑用暂存位（不被构建读取）：运行时实际用的副本打包在
   `z-indexer-server/src/main/resources/bin/frontend-indexer.cjs`（测试用副本在 `z-indexer-core/src/test/resources/bin/`），
   改动须同步这两份，否则线上仍跑旧版。
-
-补文档时按规范落 `_doc/001_arch/` 等子目录，并回到本节加链接。
