@@ -122,7 +122,7 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 | `z.indexer.mvn-cmd` / `git-cmd` / `node-cmd` | `""` | `node-cmd: ""` | 留空＝自足模式（内置发行版 / JGit）；本机 E2E 可指本地命令 |
 | `z.indexer.lru-max-repos` | `6` | `18` | 查询端常驻仓库上限 |
 | `z.indexer.warmup-repos` | `6` | `12` | 启动预热仓数（0＝关） |
-| `z.indexer.big-repo-codes` | `""` | `demo-big-repo-1,demo-big-repo-2` | 巨仓名单（构建前让路） |
+| `z.indexer.big-repo-codes` | `demo-big-repo-1,demo-big-repo-2` | `demo-big-repo-1,demo-big-repo-2` | 巨仓名单（构建前让路） |
 | `z.indexer.build-yield-repos` | `4` | `4` | 让路后 LRU 低水位 |
 | `z.indexer.default-depth` | `2` | `2` | 调用链默认展开深度 |
 | `z.indexer.max-result-nodes` | `200` | `200` | 单次返回节点上限 |
@@ -227,7 +227,7 @@ java -jar z-indexer-server/target/z-indexer-server-1.0.0.jar \
 
 | # | 出口 | 位置 | 面 |
 |---|------|------|-----|
-| 1 | 管理 API 响应体 | `IndexAdminController#toMap`（5 个端点的公共出口） | 任何能调管理 API 的人 |
+| 1 | 管理 API 响应体 | `IndexAdminController#toMap`（6 个端点的公共出口） | 任何能调管理 API 的人 |
 | 2 | `meta.json` | `IndexAdminController#uploadIndex` | 产物目录，随制品分发 |
 | 3 | `meta.json` | `IndexAdminController#uploadFinish` | 同上 |
 | 4 | `meta.json` | `IndexBuildService#buildOne` | 同上 |
@@ -266,9 +266,9 @@ mvn test                                     # TestNG，surefire 版本走父链
 mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过）
 ```
 
-实测的测试资产（2026-10-06 本机 `mvn -o test`：**core 14 类 71 法 / starter 2 类 6 法，0 failures 0 errors，3 skipped**）：
+实测的测试资产（2026-10-06 本机 `mvn -o test`：**0 failures 0 errors，3 skipped**；**聚合计数只点名不计数** —— 类数/方法总数是会漂的自指计数，本仓的 README 自守卫 `ReadmeClaimsTest` 也落在 core 里，写死即漂；下面逐类标注的法数是那次实测的快照）：
 
-- `z-indexer-core`（14 类 71 法）：
+- `z-indexer-core`：
   - `IndexerE2eTest`（3 个 `@Test`：`fullPipeline` / `dualTrackFallback` / `frontendPipeline`，真实 git +
     真实 mvn；默认 `SkipException` 跳过 → 上面那 3 个 skipped 就是它们，需 `-Dz.indexer.e2e=true` 且本机 mvn/git 可用）
   - `RepoIndexTest#loadDedupsRepeatedStringsAndKeepsSemantics`（`assertSame` 锁死字符串复用，防无声回退）
@@ -292,7 +292,10 @@ mvn test -Dtest=IndexerE2eTest -Dz.indexer.e2e=true   # 端到端（默认跳过
   - `IndexQueryServiceReloadDedupTest`（5 法：同毫秒内只有首个调用者触发重建、跨毫秒再调度、
     不同仓互不影响、并发调用者恰好选出一个）
   - `IndexBuildServiceCommitTest`（4 法：commit 保留内容、大文件不被截断、缺文件报失败而不是抛异常、rename 保留字节数）
-- `z-indexer-spring-boot-starter`（2 类 6 法）：
+  - `ReadmeClaimsTest`（README 定量主张自守卫：模块数、版本号、Controller 数、REST 端点数、
+    配置表的两列默认值、内置工具链字节数、git 地址脱敏出口数，逐条与源码重算值对账 ——
+    README 的数一改就红，README 少列一个模块名 / Controller 名同样会红）
+- `z-indexer-spring-boot-starter`：
   - `IndexerAutoConfigurationSmokeTest`（3 个 `@Test`，用
     `AnnotationConfigApplicationContext` 在 `refresh()` 阶段暴露装配环，不拉 Web/配置中心；
     `restSurfaceWired` 额外守 REST 面与 `getArtifactService()`，因为制品 bean 缺失时是 500 而不是 404）。
