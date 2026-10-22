@@ -17,7 +17,10 @@ export default defineConfig({
         emptyOutDir: true,
         rollupOptions: {
             external: ['react', 'react-dom', 'react-dom/client', 'react-router-dom',
-                       'antd', '@ant-design/icons', 'axios', '@yuku123/z-frontend-common'],
+                       'antd', '@ant-design/icons', 'axios', '@yuku123/z-frontend-common',
+                       // 基座的 /ui、/ui/echarts 子路径也要 external —— rollup 的 external 是
+                       // 精确字符串匹配而非前缀匹配，漏掉子路径会把基座 UI 组件复制进本包 dist。
+                       '@yuku123/z-frontend-common/ui', '@yuku123/z-frontend-common/ui/echarts'],
         },
     },
 })
