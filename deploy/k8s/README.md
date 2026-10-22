@@ -190,6 +190,7 @@ Pod 会一直 Pending（不是回滚失败，是没地方放）。
 | labels | 资源上只有 `app.kubernetes.io/name` | 额外加 `app.kubernetes.io/part-of` | 仅加标签，不影响 selector 匹配；`apply` 是幂等合并 |
 | nodeSelector | 无 | 无（保持） | PVC 的 PV 已绑 zifang001，靠 PV 亲和性约束；显式加 nodeSelector 属于改 spec，需另行评估 |
 | env | `JAVA_OPTS` / `REDIS_HOST` / `REDIS_PORT` | 多 `Z_INDEXER_TOKEN`（Secret `z-indexer-auth` 注入） | 卡 `TASK-20261022-017` 第 2 项的管理面入站鉴权；**值不进仓**，且**必须先建 Secret 再 apply**（fail closed） |
+| SA 令牌自动挂载 | `automountServiceAccountToken: false` | 不含该字段 | 该收敛由**独立清单**执行（卡 `TASK-20261021-021` 交付、用户亲自执行），刻意与各域部署清单分开，避免抢同一批字段。⚠ `apply` 本清单**不会回退**这项加固（字段既不在本清单、也不在 last-applied ⇒ 三向合并不构成删除动作，已用 `kubectl apply --dry-run=server` 逐域实测：该字段仍为 `false`） |
 
 ## 6. 待办（不在本任务范围内）
 
