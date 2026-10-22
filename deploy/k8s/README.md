@@ -189,6 +189,7 @@ Pod 会一直 Pending（不是回滚失败，是没地方放）。
 | 探针 | 无 | `httpGet /actuator/health`（readiness + liveness） | 本域 1 副本在跑且该端点实测 200 ⇒ 用实测可用的端点；线上没有探针 ⇒ 属于新增可观测性，不改行为 |
 | labels | 资源上只有 `app.kubernetes.io/name` | 额外加 `app.kubernetes.io/part-of` | 仅加标签，不影响 selector 匹配；`apply` 是幂等合并 |
 | nodeSelector | 无 | 无（保持） | PVC 的 PV 已绑 zifang001，靠 PV 亲和性约束；显式加 nodeSelector 属于改 spec，需另行评估 |
+| env | `JAVA_OPTS` / `REDIS_HOST` / `REDIS_PORT` | 多 `Z_INDEXER_TOKEN`（Secret `z-indexer-auth` 注入） | 卡 `TASK-20261022-017` 第 2 项的管理面入站鉴权；**值不进仓**，且**必须先建 Secret 再 apply**（fail closed） |
 
 ## 6. 待办（不在本任务范围内）
 
