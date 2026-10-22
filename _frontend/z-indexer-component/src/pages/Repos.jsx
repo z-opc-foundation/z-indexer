@@ -1,12 +1,12 @@
 /** 仓库注册表 CRUD：列表 / 启停 / 重建 / 删除 / 新增。 */
 import {useEffect, useState} from 'react'
 import {
-    Button, Card, Form, Input, message, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Tooltip, Typography,
+    Button, Card, Form, Input, message, Modal, Popconfirm, Select, Space, Switch, Tag, Tooltip, Typography,
 } from 'antd'
 import {
     DeleteOutlined, PlusOutlined, ReloadOutlined, SyncOutlined,
 } from '@ant-design/icons'
-import {EmptyState, StatusBadge, TableToolbar} from '@yuku123/z-frontend-common/ui'
+import {ListTable, StatusBadge, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import {deleteRepo, getBuildLog, listRepos, rebuildRepo, saveRepo, toggleRepo, triggerPoll} from '../services/api'
 
 const {Title, Paragraph, Text} = Typography
@@ -134,9 +134,19 @@ export default function Repos() {
             />
             <Paragraph type="secondary">注册 Git 仓库后由 IndexSyncRunner 周期构建。Ref 模式：BRANCH（固定分支）/ TAG_PATTERN（正则匹配）/ TAG_LATEST（最新 tag）。</Paragraph>
 
-            {/* 空态用共享 EmptyState（lead 008 §2 强制规则 4），不要 antd 默认空图 */}
-            <Table rowKey="repoCode" dataSource={repos} columns={columns} loading={loading} size="small" scroll={{x: 1200}}
-                   locale={{emptyText: <EmptyState title="暂无仓库" description="还没有注册 Git 仓库，点右上角「新增」注册第一个"/>}}/>
+            {/* 空态用共享 EmptyState（lead 008 §2 强制规则 4），不要 antd 默认空图；
+                分页/过滤/空态三件套由基座 ListTable 统一承接。 */}
+            <ListTable
+                rows={repos}
+                columns={columns}
+                rowKey="repoCode"
+                loading={loading}
+                scroll={{x: 1200}}
+                searchKeys="repoCode,repoName,gitUrl"
+                searchPlaceholder="按仓库代码 / 显示名 / Git URL 过滤"
+                emptyTitle="暂无仓库"
+                emptyDescription="还没有注册 Git 仓库，点右上角「新增」注册第一个"
+            />
 
             <Modal
                 title={editing && repos.find(r => r.repoCode === editing.repoCode) ? '编辑仓库' : '新增仓库'}
