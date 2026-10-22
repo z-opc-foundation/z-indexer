@@ -1,7 +1,8 @@
 /** z-indexer 状态展示：注册表总数 / 已启 / 总行数 / 最近轮询。 */
 import {useEffect, useState} from 'react'
-import {Card, Col, Row, Skeleton, Statistic, Tag, Typography} from 'antd'
+import {Card, Col, Row, Statistic, Typography} from 'antd'
 import {ApiOutlined, CheckCircleOutlined, ClockCircleOutlined, DatabaseOutlined, SyncOutlined} from '@ant-design/icons'
+import {EmptyState, LoadingState, StatusBadge} from '@yuku123/z-frontend-common/ui'
 import {listRepos, listQueryableRepos} from '../services/api'
 
 const {Title, Paragraph} = Typography
@@ -11,10 +12,13 @@ function fmtTime(ts) {
     return new Date(ts).toLocaleString()
 }
 
-function StatusTag({s}) {
-    const map = {SUCCESS: 'green', FAILED: 'red', BUILDING: 'processing', NEVER: 'default'}
-    const text = {SUCCESS: '成功', FAILED: '失败', BUILDING: '构建中', NEVER: '未构建'}[s] || s
-    return <Tag color={map[s] || 'orange'}>{text}</Tag>
+// 构建状态不属于 StatusBadge 内置的任何一类（task/model/priority/approval/schedule），
+// 所以用 mapping 显式传 —— 文案与颜色与原来的手写 StatusTag 完全一致。
+const BUILD_STATUS = {
+    SUCCESS: {label: '成功', color: 'green'},
+    FAILED: {label: '失败', color: 'red'},
+    BUILDING: {label: '构建中', color: 'processing'},
+    NEVER: {label: '未构建', color: 'default'},
 }
 
 export default function Overview() {
@@ -38,7 +42,8 @@ export default function Overview() {
         return () => clearInterval(t)
     }, [])
 
-    if (loading) return <Skeleton active/>
+    // 加载态走共享骨架屏（cards 变体对应下面 4 张统计卡），不再用裸 Skeleton
+    if (loading) return <LoadingState variant="cards" rows={4}/>
 
     const enabled = admin.filter(r => r.enabled).length
     const indexed = query.filter(r => r.indexType && r.indexType !== 'NOT_INDEXED').length
@@ -76,11 +81,15 @@ export default function Overview() {
                     {Object.entries(statusCount).map(([k, v]) => (
                         <Col key={k} span={6}>
                             <Card size="small">
-                                <Statistic title={<StatusTag s={k}/>} value={v}/>
+                                <Statistic title={<StatusBadge status={k} mapping={BUILD_STATUS}/>} value={v}/>
                             </Card>
                         </Col>
                     ))}
-                    {Object.keys(statusCount).length === 0 && <Col><Paragraph type="secondary">暂无数据</Paragraph></Col>}
+                    {Object.keys(statusCount).length === 0 && (
+                        <Col span={24}>
+                            <EmptyState title="暂无数据" description="还没有构建记录，注册仓库后触发一次构建即可看到分布" size="sm"/>
+                        </Col>
+                    )}
                 </Row>
             </Card>
         </div>

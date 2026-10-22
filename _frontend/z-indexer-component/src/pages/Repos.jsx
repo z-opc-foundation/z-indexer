@@ -6,15 +6,19 @@ import {
 import {
     DeleteOutlined, PlusOutlined, ReloadOutlined, SyncOutlined,
 } from '@ant-design/icons'
+import {EmptyState, StatusBadge, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import {deleteRepo, getBuildLog, listRepos, rebuildRepo, saveRepo, toggleRepo, triggerPoll} from '../services/api'
 
 const {Title, Paragraph, Text} = Typography
 const {Option} = Select
 
-function StatusTag({s}) {
-    const map = {SUCCESS: 'green', FAILED: 'red', BUILDING: 'processing', NEVER: 'default'}
-    const text = {SUCCESS: '成功', FAILED: '失败', BUILDING: '构建中', NEVER: '未构建'}[s] || s
-    return <Tag color={map[s] || 'orange'}>{text}</Tag>
+// 构建状态不属于 StatusBadge 内置的任何一类，用 mapping 显式传，
+// 文案与颜色与原来的手写 StatusTag 完全一致。
+const BUILD_STATUS = {
+    SUCCESS: {label: '成功', color: 'green'},
+    FAILED: {label: '失败', color: 'red'},
+    BUILDING: {label: '构建中', color: 'processing'},
+    NEVER: {label: '未构建', color: 'default'},
 }
 
 function fmtDuration(ms) {
@@ -92,7 +96,7 @@ export default function Repos() {
         {title: 'Ref', key: 'ref', width: 180,
             render: (_, r) => <Tag>{r.refMode || '—'}: {r.refValue || '—'}</Tag>},
         {title: '状态', dataIndex: 'lastBuildStatus', key: 'status', width: 90,
-            render: (s) => <StatusTag s={s}/>},
+            render: (s) => <StatusBadge status={s} mapping={BUILD_STATUS}/>},
         {title: '索引行数', dataIndex: 'lastIndexLines', key: 'lines', width: 110,
             render: (n) => n ? n.toLocaleString('zh-CN') : '—'},
         {title: '构建耗时', dataIndex: 'lastBuildDurationMs', key: 'dur', width: 90,
@@ -118,15 +122,21 @@ export default function Repos() {
 
     return (
         <div>
-            <Space style={{marginBottom: 16}}>
-                <Title level={4} style={{margin: 0}}>仓库注册表</Title>
-                <Button icon={<ReloadOutlined/>} onClick={load}>刷新</Button>
-                <Button icon={<SyncOutlined/>} onClick={onPoll}>触发全量轮询</Button>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={() => setEditing({...EMPTY})}>新增</Button>
-            </Space>
+            <TableToolbar
+                left={<Title level={4} style={{margin: 0}}>仓库注册表</Title>}
+                right={
+                    <>
+                        <Button icon={<ReloadOutlined/>} onClick={load}>刷新</Button>
+                        <Button icon={<SyncOutlined/>} onClick={onPoll}>触发全量轮询</Button>
+                        <Button type="primary" icon={<PlusOutlined/>} onClick={() => setEditing({...EMPTY})}>新增</Button>
+                    </>
+                }
+            />
             <Paragraph type="secondary">注册 Git 仓库后由 IndexSyncRunner 周期构建。Ref 模式：BRANCH（固定分支）/ TAG_PATTERN（正则匹配）/ TAG_LATEST（最新 tag）。</Paragraph>
 
-            <Table rowKey="repoCode" dataSource={repos} columns={columns} loading={loading} size="small" scroll={{x: 1200}}/>
+            {/* 空态用共享 EmptyState（lead 008 §2 强制规则 4），不要 antd 默认空图 */}
+            <Table rowKey="repoCode" dataSource={repos} columns={columns} loading={loading} size="small" scroll={{x: 1200}}
+                   locale={{emptyText: <EmptyState title="暂无仓库" description="还没有注册 Git 仓库，点右上角「新增」注册第一个"/>}}/>
 
             <Modal
                 title={editing && repos.find(r => r.repoCode === editing.repoCode) ? '编辑仓库' : '新增仓库'}

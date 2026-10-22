@@ -1,7 +1,8 @@
 /** 符号检索：跨仓 symbol 查询 / 调用链（callers + callees）。 */
 import {useEffect, useState} from 'react'
-import {Alert, AutoComplete, Button, Card, Empty, Form, Input, InputNumber, Select, Space, Table, Tabs, Tag, Typography} from 'antd'
+import {Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Select, Space, Table, Tabs, Tag, Typography} from 'antd'
 import {ApiOutlined, ArrowDownOutlined, ArrowUpOutlined, SearchOutlined} from '@ant-design/icons'
+import {EmptyState, ErrorState} from '@yuku123/z-frontend-common/ui'
 import {getCallees, getCallers, listQueryableRepos, searchSymbols} from '../services/api'
 
 const {Title, Paragraph, Text} = Typography
@@ -114,7 +115,12 @@ export default function Query() {
 
             <Tabs activeKey={tab} onChange={setTab}>
                 <TabPane tab={<span><ApiOutlined/>符号搜索</span>} key="symbol">
-                    {symError && <Alert type="error" message="查询失败" description={symError}/>}
+                    {symError && (
+                        <div style={{marginBottom: 12}}>
+                            {/* 错误就近显示，保留原来的文案；onRetry 复用同一个查询动作 */}
+                            <ErrorState error={symError} title="查询失败" onRetry={onSearch}/>
+                        </div>
+                    )}
                     {!symError && symResult?.loading && (
                         <Alert type="warning" message="冷加载中" description="该仓首次查询，索引正在加载，请 30s 后重试同一查询"/>
                     )}
@@ -126,11 +132,17 @@ export default function Query() {
                                loading={symLoading} size="small" pagination={false}
                                title={() => <Text>共 {symResult.count} 条</Text>}/>
                     )}
-                    {!symLoading && !symResult && !symError && <Empty description="输入符号名开始搜索"/>}
+                    {!symLoading && !symResult && !symError && (
+                        <EmptyState title="暂无结果" description="输入符号名开始搜索"/>
+                    )}
                 </TabPane>
                 <TabPane tab={<span><ArrowUpOutlined/>Callers（谁调它）</span>} key="callers">
                     <Button onClick={() => onChain(true)} loading={chainLoading} icon={<ArrowUpOutlined/>}>查询 callers</Button>
-                    {chainError && <Alert style={{marginTop: 12}} type="error" message="失败" description={chainError}/>}
+                    {chainError && (
+                        <div style={{marginTop: 12}}>
+                            <ErrorState error={chainError} title="失败" onRetry={() => onChain(true)}/>
+                        </div>
+                    )}
                     {chainResult?.nodes && (
                         <Table style={{marginTop: 12}} rowKey={(r, i) => i} dataSource={buildChainRows(chainResult)}
                                loading={chainLoading} size="small" pagination={false}
@@ -144,7 +156,11 @@ export default function Query() {
                 </TabPane>
                 <TabPane tab={<span><ArrowDownOutlined/>Callees（它调谁）</span>} key="callees">
                     <Button onClick={() => onChain(false)} loading={chainLoading} icon={<ArrowDownOutlined/>}>查询 callees</Button>
-                    {chainError && <Alert style={{marginTop: 12}} type="error" message="失败" description={chainError}/>}
+                    {chainError && (
+                        <div style={{marginTop: 12}}>
+                            <ErrorState error={chainError} title="失败" onRetry={() => onChain(false)}/>
+                        </div>
+                    )}
                     {chainResult?.nodes && (
                         <Table style={{marginTop: 12}} rowKey={(r, i) => i} dataSource={buildChainRows(chainResult)}
                                loading={chainLoading} size="small" pagination={false}
