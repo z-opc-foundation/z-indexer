@@ -126,6 +126,13 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 | `z.indexer.build-yield-repos` | `4` | `4` | 让路后 LRU 低水位 |
 | `z.indexer.default-depth` | `2` | `2` | 调用链默认展开深度 |
 | `z.indexer.max-result-nodes` | `200` | `200` | 单次返回节点上限 |
+| `z.indexer.token` |  | `${Z_INDEXER_TOKEN:}` | 管理面令牌（`X-Indexer-Token` 头 / `Authorization: Bearer`）。代码默认＝空串 ⇒ 不启用鉴权；**值只从环境变量取，不进仓** |
+| `z.indexer.auth-require-token` | `false` | `true` | 独立部署时 fail closed：缺令牌 ⇒ 启动失败 |
+| `z.indexer.auth-excluded-paths` |  | —（未覆盖） | 免鉴权路径前缀（逗号分隔；代码默认＝空串 ⇒ `/index/*` 全挡） |
+
+> ⚠ `z.indexer` 块是**平铺**的（`auth-require-token` 而不是 `auth.require-token`）：
+> 本仓的 `ReadmeClaimsTest` 按「一层 key: value」解析这个块，嵌套结构会让它的口径失效
+> （实测：加了 `auth:` 子块 ⇒ 3 个 ReadmeClaims 测试直接报「嵌套结构，解析口径不再成立」）。
 
 **轮询周期口径（2026-10-02 修）**：`IndexerAutoConfiguration#scheduledPoll` 的占位符此前写成
 `${z-indexer.indexer.poll-*}`，而 `IndexerProperties` 绑的是 `z.indexer.poll-*` —— 两个前缀不是同一格，
@@ -134,7 +141,7 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 即改 yaml/配置中心里的 `z.indexer.poll-interval-ms` 就真的改到轮询周期。
 （仓内该值恰与默认同数，所以修前修后首轮节奏一样 —— 差别在"能不能被配走"。）
 
-环境变量（`application.yaml` 实测只有这 4 个 `${}` 引用，全在 `spring.redis.*` 下；**只写变量名，值必须经环境注入**）：
+环境变量（**只写变量名，值必须经环境注入**）：
 
 | 环境变量 | 对应键 | 默认 |
 |----------|--------|------|
@@ -142,6 +149,7 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 | `REDIS_PORT` | `spring.redis.port` | `6379` |
 | `REDIS_DB` | `spring.redis.database` | `0` |
 | `REDIS_PASSWORD` | `spring.redis.password` | 空 |
+| `Z_INDEXER_TOKEN` | 配置表里的 `token` 行 | 空（**空 ⇒ 管理面不启用鉴权**；独立部署必须配） |
 
 Actuator 暴露：`management.endpoints.web.exposure.include=health,info,metrics,env`，`show-details=always`；
 日志级别 `logging.level.com.zifang.z.indexer=INFO`。`bootstrap.yaml` 另有 `z-opc.application.name=z-indexer-indexer`
@@ -189,6 +197,22 @@ java -jar z-indexer-server/target/z-indexer-server-1.0.0.jar \
 ---
 
 ## 🔌 API
+
+### 🔐 入站鉴权（卡 TASK-20261022-017 第 2 项）
+
+`/index/**` 整个命名空间由 `IndexerAuthFilter` 挡（**管理面 + 查询面一起挡**：
+只挡写端点等于半拉子鉴权 —— 仓清单与构建日志仍是公开的）。
+
+| 项 | 口径 |
+|---|---|
+| 令牌头 | **`X-Indexer-Token`**（仓内既有契约，前端 `z-indexer-component` 早就在注入）+ 标准 `Authorization: Bearer` |
+| 令牌来源 | `z.indexer.token` ← 环境变量 `Z_INDEXER_TOKEN`（生产从 Secret 注入，**不进仓**） |
+| 未配令牌 | starter 默认**不启用**（嵌入式使用者不受影响）并打 WARN；独立部署（`z-indexer-server`）`auth-require-token=true` ⇒ **fail closed：缺令牌直接启动失败** |
+| 挑战 | 401 + `WWW-Authenticate: Bearer realm="z-indexer"`；响应体**不回显**客户端递来的头 |
+
+> ⚠ **前端不用改一行**：前端早就按「`X-Indexer-Token`，开启后所有 endpoint 必带」写好了注入
+> （`localStorage['zindexer_admin_token']`），而后端一直没实现这道校验 ⇒ 那套注入一直是空转。
+> 本次把后端补上，两边对上。
 
 **5 个** Controller 全在 `z-indexer-spring-boot-starter/.../controller/`（`IndexAdmin` / `IndexQuery` / `IndexMonitor` / `IndexArtifact` / `RedisProbe`），
 共 **19** 个方法级端点（类级 `@RequestMapping` 5 个），统一返回 `{"ok": true/false, ...}`；

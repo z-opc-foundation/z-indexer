@@ -12,6 +12,67 @@ public class IndexerProperties {
     private boolean enabled = true;
 
     /**
+     * 管理面令牌（{@code X-Indexer-Token} 头 / {@code Authorization: Bearer}）。
+     *
+     * <p><b>空 = 不启用鉴权</b>（starter 是发给外面用的：嵌入式使用者不该被迫配令牌）。
+     * <b>独立部署的服务（z-indexer-server）必须配</b>，且把
+     * {@link Auth#isRequireToken()} 打开 ⇒ 缺令牌直接启动失败（fail closed）。
+     *
+     * <p><b>值不进仓</b>：生产走环境变量（{@code Z_INDEXER_TOKEN} → K8s Secret），
+     * 本仓的 yaml 只写 {@code ${Z_INDEXER_TOKEN:}}。
+     *
+     * <p>头名沿用仓内既有契约：前端 {@code z-indexer-component} 早就按
+     * 「{@code X-Indexer-Token}，开启后所有 endpoint 必带」写好了注入，
+     * <b>后端一直没实现这道校验</b> ⇒ 那套注入一直是空转。
+     */
+    private String token = "";
+
+
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(String token) {
+        this.token = token;
+    }
+
+    /**
+     * 是否要求「必须配了令牌才允许启动」。
+     *
+     * <p>默认 false（嵌入式使用者不受影响）；独立部署的服务应当 true ——
+     * 缺令牌却起来了 = 一个「以为加了鉴权、其实没加」的进程，比起不来危险得多。
+     */
+    private boolean authRequireToken = false;
+
+    /**
+     * 免鉴权的路径前缀（默认空 = {@code /index/*} 全挡）。多个用逗号分隔。
+     *
+     * <p>⚠ <b>平铺键，不做嵌套</b>：本仓的 {@code z.indexer} 配置块被
+     * {@code ReadmeClaimsTest} 按「一层 key: value」解析（嵌套结构会让它的口径失效），
+     * 所以这里是 {@code auth-excluded-paths} 而不是 {@code auth.excluded-paths}。
+     *
+     * <p>⚠ <b>用字符串而不是 List</b>：那个契约测试只认
+     * {@code int/long/boolean/String} 字段（List 字段抠不出默认值 ⇒ 对账直接报错）。
+     */
+    private String authExcludedPaths = "";
+
+    public boolean isAuthRequireToken() {
+        return authRequireToken;
+    }
+
+    public void setAuthRequireToken(boolean authRequireToken) {
+        this.authRequireToken = authRequireToken;
+    }
+
+    public String getAuthExcludedPaths() {
+        return authExcludedPaths;
+    }
+
+    public void setAuthExcludedPaths(String authExcludedPaths) {
+        this.authExcludedPaths = authExcludedPaths == null ? "" : authExcludedPaths;
+    }
+
+    /**
      * repos 根目录：其下有 repos/（git 工作副本）、indexer/（索引产物）、bin/（内置工具链）。
      * <p>默认 JVM tmpdir（容器 /data 不可写）；生产由 application.yaml 显式配置。
      */

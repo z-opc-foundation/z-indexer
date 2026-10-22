@@ -76,6 +76,12 @@
             <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- 管理面鉴权闸门的单测要 MockHttpServletRequest/Response（spring-test） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

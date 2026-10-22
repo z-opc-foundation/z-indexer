@@ -80,6 +80,10 @@ public class ReadmeClaimsTest {
             {"build-yield-repos", "buildYieldRepos"},
             {"default-depth", "defaultDepth"},
             {"max-result-nodes", "maxResultNodes"},
+            // 管理面鉴权（卡 TASK-20261022-017 第 2 项）：令牌 / fail closed 开关 / 豁免路径
+            {"token", "token"},
+            {"auth-require-token", "authRequireToken"},
+            {"auth-excluded-paths", "authExcludedPaths"},
     };
 
     /** README 配置表里那行三键合一（`mvn-cmd` / `git-cmd` / `node-cmd`）——不参与逐键对账。 */

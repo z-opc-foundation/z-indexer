@@ -13,6 +13,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -60,6 +63,68 @@ public class IndexerAutoConfiguration {
      */
     @Autowired
     private ObjectProvider<IndexSyncRunner> indexSyncRunnerProvider;
+
+    /**
+     * 管理面入站鉴权闸门。
+     *
+     * <p><b>为什么现在才补</b>：管理面 {@code /index/admin/**} 此前零鉴权 ——
+     * 它能<b>建仓、删仓、强制重建索引、上传索引制品、触发全量轮询</b>，
+     * 每一条都改运行时状态。而前端 {@code z-indexer-component} 早就按
+     * 「{@code X-Indexer-Token}，开启后所有 endpoint 必带」写好了注入
+     * ⇒ 后端一直没实现这道校验，前端那套注入一直是空转。本类把它补上，<b>前端不用改</b>。
+     *
+     * <p><b>默认不启用</b>（令牌为空就不装这个过滤器）：starter 是发给外面用的，
+     * 嵌入式使用者不该被迫配令牌。
+     * <b>独立部署的服务（z-indexer-server）用 {@code z.indexer.auth.require-token=true}
+     * 打开 fail closed</b>：缺令牌直接启动失败。
+     *
+     * <p>拦的是 {@code /index/*} 整个命名空间（管理 + 查询 + 监控）：
+     * 前端对所有请求都注入那个头，所以拦全命名空间与前端契约一致；
+     * 而「只挡写端点」会让仓列表/构建日志仍可匿名读 —— 那不是鉴权，是半拉子。
+     */
+    @Bean
+    public FilterRegistrationBean<IndexerAuthFilter> indexerAuthFilter(IndexerProperties properties) {
+        String token = properties.getToken() == null ? "" : properties.getToken().trim();
+        if (properties.isAuthRequireToken() && token.isEmpty()) {
+            // fail closed：宁可不启动，也不要「以为加了鉴权、其实没加」
+            throw new IllegalStateException(
+                    "z.indexer.auth.require-token=true 但 z.indexer.token 为空 —— "
+                            + "请配置环境变量 Z_INDEXER_TOKEN（生产从 Secret 注入）。"
+                            + "拒绝以「管理面无鉴权」姿态启动");
+        }
+        if (token.isEmpty()) {
+            log.warn("[IndexerAuth] 管理面鉴权未启用（z.indexer.token 为空）—— "
+                    + "任何能连上本端口的主机都能建仓/重建/上传制品");
+            // 放行一切，但**已经 warn 过了**：这个过滤器存在的意义就是「闸门开着也要有声音」
+            return registration(new IndexerAuthFilter(null, splitPaths(properties.getAuthExcludedPaths())));
+        }
+        List<String> excluded = splitPaths(properties.getAuthExcludedPaths());
+        log.info("[IndexerAuth] 管理面鉴权已启用，受保护路径 /index/*，免鉴权路径：{}", excluded);
+        return registration(new IndexerAuthFilter(token, excluded));
+    }
+
+    /** 逗号分隔的路径前缀 → 列表（空串 ⇒ 空列表）。 */
+    private static List<String> splitPaths(String raw) {
+        List<String> out = new ArrayList<String>();
+        if (raw == null || raw.trim().isEmpty()) {
+            return out;
+        }
+        for (String one : raw.split(",")) {
+            String t = one.trim();
+            if (!t.isEmpty()) {
+                out.add(t);
+            }
+        }
+        return out;
+    }
+
+    private FilterRegistrationBean<IndexerAuthFilter> registration(IndexerAuthFilter filter) {
+        FilterRegistrationBean<IndexerAuthFilter> bean =
+                new FilterRegistrationBean<IndexerAuthFilter>(filter);
+        bean.addUrlPatterns("/index/*");
+        bean.setOrder(10);
+        return bean;
+    }
 
     @Bean
     public IndexerConfig indexerCoreConfig(IndexerProperties properties) {

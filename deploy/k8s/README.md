@@ -25,7 +25,7 @@
 - env：`JAVA_OPTS=-Xms512m -Xmx2g -XX:MaxMetaspaceSize=512m` + `REDIS_HOST` / `REDIS_PORT`
 - resources：requests `500m` / `3Gi`，limits `4` CPU / `4Gi`
 - PVC `z-indexer-data`（20Gi，RWO，local-path，Filesystem）挂在 `/var/lib/z-indexer`
-- 本域**无 secret**
+- 本域**有一个鉴权 Secret**（`z-indexer-auth`，见 §3.0；基线导出时还没有）
 
 ⚠ **跨域依赖**：本域连的是 `redis.z-cache.svc.cluster.local` ⇒ **ns `z-cache` 里的 redis**。
 z-cache 域不在本仓（见 `z-cache/deploy/k8s/`），它没起来本域就起不来（连不上 redis）。
@@ -101,6 +101,33 @@ docker save zopc/z-indexer:local | ssh zifang@192.168.31.136 'cat - | sudo -n k3
 
 ## 3. 怎么 apply
 
+### 3.0 ⚠ 前置：先建鉴权 Secret（顺序是硬前提）
+
+卡 `TASK-20261022-017` 第 2 项给本域的管理面加了入站鉴权，**fail closed**：
+
+| Secret | 键 | 保护什么 | 缺了会怎样 |
+|---|---|---|---|
+| `z-indexer-auth` | `token` | `/index/**` 整个命名空间：建仓/删仓/强制重建/上传制品/触发轮询 **+ 查询面/监控面** | 进程起不来 |
+
+**值不进仓**：从密钥库取（或本地一次性生成）后直接灌进集群。
+
+```bash
+# ⚠ 会改动生产集群（写 secret）⇒ 需要人工确认后执行；本仓只产出清单，不代跑。
+# 值从环境变量/密钥库取，**不要**写进命令历史或仓库：
+kubectl -n z-indexer create secret generic z-indexer-auth \
+  --from-literal=token="$Z_INDEXER_TOKEN" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+**顺序铁律**：Secret → 镜像喂进节点 → apply Deployment。
+（Secret 必须在 Deployment 之前：鉴权 fail closed，Secret 没建就 apply ⇒ Pod CrashLoopBackOff。）
+
+⚠ **前端不用改**：`z-indexer-component` 早就按「`X-Indexer-Token`，开启后所有 endpoint 必带」
+写好了注入（`localStorage['zindexer_admin_token']`），后端这次把校验补上，两边对上。
+⇒ **发版后前端要在浏览器里填一次 token**（控制台管理面需要），否则它会拿到 401。
+
+### 3.1 apply
+
 ```bash
 # ⚠ 会改动生产集群，需要人工确认后再执行；本仓只产出清单，不代跑。
 kubectl apply -f deploy/k8s/
@@ -113,15 +140,18 @@ kubectl apply -f deploy/k8s/
 2. **PVC 的顺序无所谓，但别删**：`03-pvc.yaml` 对已有 PVC 是幂等更新（不改容量、不重绑、不清数据）。
    ⚠ **绝不要 `kubectl delete pvc z-indexer-data -n z-indexer`**——local-path 上删 PVC 会连带删 PV 里的数据，
    索引重建不回来。
-3. **镜像先在**：见 §2。两个节点都喂完再 apply，否则 Pod 起不来。
-4. **依赖域先在**：ns `z-cache` 的 redis 要在跑（`REDIS_HOST=redis.z-cache.svc.cluster.local`）。
-5. 本域**无 secret**，不需要额外前置对象。
+3. **Secret 先在**：见 §3.0（`z-indexer-auth`）。
+4. **镜像先在**：见 §2。两个节点都喂完再 apply，否则 Pod 起不来。
+5. **依赖域先在**：ns `z-cache` 的 redis 要在跑（`REDIS_HOST=redis.z-cache.svc.cluster.local`）。
 
 apply 后自检：
 
 ```bash
 kubectl -n z-indexer get deploy,svc,pvc,pods
 kubectl -n z-indexer describe deploy z-indexer-server | tail -30
+# 鉴权是否真的生效（匿名读 ⇒ 必须 401）
+kubectl -n z-indexer exec deploy/z-indexer-server -- \
+  wget -q -S -O- http://127.0.0.1:8080/index/admin/repos 2>&1 | head -3
 ```
 
 ## 4. 怎么回滚

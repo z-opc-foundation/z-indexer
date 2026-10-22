@@ -26,7 +26,15 @@
 #     要显式化可加 nodeSelector: kubernetes.io/hostname: zifang001，需另行评估。
 #
 # 【secret 从哪来】
-#   本域**无 secret**（基线导出里没有 secretKeyRef）。
+#   基线导出里本域**无 secret**（没有 secretKeyRef）。
+#
+#   ⚠⚠ **鉴权改造后新增一个 Secret（顺序是硬前提）**：
+#     `z-indexer-auth` 键 `token` —— 管理面令牌（`X-Indexer-Token` 头）。
+#     **必须先把 Secret 建好，再 apply 本 Deployment**：
+#     鉴权 fail closed（缺令牌 ⇒ 进程**启动失败**），Secret 没建就 apply ⇒ Pod CrashLoopBackOff。
+#     secretKeyRef 写了 `optional: true` ⇒ 缺 Secret 时 Pod 仍能起来，
+#     但应用会带着明确的错误信息退出（比 k8s 的 "secret not found" 更能指出该做什么）。
+#     建 Secret 的命令见 README §3（**值不进仓**：从密钥库/本地生成后直接灌）。
 # ============================================================
 apiVersion: apps/v1
 kind: Deployment
@@ -67,6 +75,20 @@ spec:
               value: redis.z-cache.svc.cluster.local
             - name: REDIS_PORT
               value: "6379"
+            # ===== 管理面入站鉴权（卡 TASK-20261022-017 第 2 项）=====
+            # 管理面 /index/admin/** 此前**零鉴权**：能建仓、删仓、强制重建索引、
+            # 上传索引制品、触发全量轮询 —— 每一条都改运行时状态。
+            # ⇒ 值从 Secret 注入环境变量（**不进仓**），应用侧映射到 z.indexer.token。
+            # ⚠ 独立部署 fail closed：缺这个环境变量 ⇒ 进程**启动失败**
+            #   （一个「以为加了鉴权、其实没加」的进程比起不来危险得多）。
+            # ⚠ 头名沿用仓内既有契约：前端 z-indexer-component 早就按
+            #   「X-Indexer-Token，开启后所有 endpoint 必带」写好了注入 ⇒ 前端不用改。
+            - name: Z_INDEXER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: z-indexer-auth
+                  key: token
+                  optional: true
           resources:
             limits:
               cpu: "4"

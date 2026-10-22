@@ -2,6 +2,20 @@
 z:
   indexer:
     enabled: true
+    # ===== 管理面入站鉴权（卡 TASK-20261022-017 第 2 项）=====
+    # 管理面 /index/admin/** 此前**零鉴权**：能建仓、删仓、强制重建索引、
+    # 上传索引制品、触发全量轮询 —— 每一条都改运行时状态。
+    # ⚠ 头名沿用仓内既有契约：前端 z-indexer-component 早就按
+    #   「X-Indexer-Token，开启后所有 endpoint 必带」写好了注入（localStorage
+    #   的 zindexer_admin_token），而后端一直没实现这道校验 ⇒ 那套注入一直是空转。
+    #   本次把后端补上 ⇒ **前端不用改一行**。
+    # 值只从环境变量取（Secret 注入），**不进仓**。
+    token: ${Z_INDEXER_TOKEN:}
+    # 独立部署的服务必须 fail closed：缺令牌 ⇒ 启动失败
+    # （一个「以为加了鉴权、其实没加」的进程比起不来危险得多）。
+    # ⚠ 这里用**平铺键**（不是 auth.require-token）：本仓的 z.indexer 块被
+    #   ReadmeClaimsTest 按「一层 key: value」解析，嵌套结构会让它的口径失效。
+    auth-require-token: true
     # repos 根目录：其下有 repos/（git 工作副本）、indexer/（索引产物）、bin/（内置 maven/工具链）。
     # 该根目录须落在跨部署持久的卷上（重启不丢工作副本与索引产物，否则每轮全量重 clone）。
     # 注意值不带 /repos 后缀（reposDir() 会拼 repos/ 子目录）。
