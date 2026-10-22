@@ -1,0 +1,25 @@
+# ============================================================
+# z-indexer —— Service（NodePort）
+# 线上实况（/tmp/zdeploy-base/z-indexer.yaml 导出为准）：
+#   Service  z-indexer-server  NodePort  8080 → targetPort http  nodePort 31892
+#   selector app.kubernetes.io/name=z-indexer-server
+#
+# 端口与 NodePort 号**照抄线上**，不重新分配（改号会让既有调用方失联，收益为零）。
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: z-indexer-server
+  namespace: z-indexer
+  labels:
+    app.kubernetes.io/name: z-indexer-server
+    app.kubernetes.io/part-of: z-opc-foundation
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: z-indexer-server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      nodePort: 31892

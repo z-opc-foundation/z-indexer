@@ -1,0 +1,102 @@
+# ============================================================
+# z-indexer —— Deployment（工作负载）
+#
+# 【镜像 tag 为什么这样写】
+#   image: zopc/z-indexer:local
+#   —— 裸 tag，**不带 Nexus 仓库前缀**。铁律：本集群 imagePullPolicy=Never，
+#      镜像只存在于两个节点的 containerd，不在任何 registry。k3s 不会去拉，
+#      它按 `image:` 字段的**字面引用**去节点本地 content store 里找。
+#      如果喂进 containerd 的 tag 带前缀（例如 nexus.internal/zopc/z-indexer:local）
+#      而清单里写的是裸 tag（或反过来），本地查不到 ⇒ Pod 卡 ErrImageNeverPull。
+#      喂镜像的 tag 必须与这里的 `image:` 逐字一致，见 README §2。
+#   imagePullPolicy: Never —— 照抄线上。
+#
+# 【探针为什么选 /actuator/health】
+#   本域线上 1 副本在跑，该端点**实测返回 200**（body 形如 {"status":"UP",...}），
+#   是本域真实可用的健康端点 ⇒ 直接用 httpGet，不套通用探针。
+#   线上基线里本域原本**没有探针**，本清单补上（readiness + liveness 各一）。
+#
+# 【存储 / 调度】
+#   挂载 PVC z-indexer-data → /var/lib/z-indexer（20Gi，storageClass local-path）。
+#   ⚠ local-path 是**节点本地**存储：线上这个 PVC 的 PV 已绑到 zifang001
+#     （PV 注解 volume.kubernetes.io/selected-node=zifang001），
+#     而线上 Deployment **没有** nodeSelector ⇒ 靠 PV 的节点亲和性兜底。
+#     Pod 若被调度到 zifang002 会一直 Pending（volume node affinity 冲突）。
+#     照抄线上：不加 nodeSelector（那是改 spec），但要知道这条隐性约束。
+#     要显式化可加 nodeSelector: kubernetes.io/hostname: zifang001，需另行评估。
+#
+# 【secret 从哪来】
+#   本域**无 secret**（基线导出里没有 secretKeyRef）。
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: z-indexer-server
+  namespace: z-indexer
+  labels:
+    app.kubernetes.io/name: z-indexer-server
+    app.kubernetes.io/part-of: z-opc-foundation
+spec:
+  replicas: 1
+  # 保留 10 个历史版本 ⇒ `kubectl rollout undo deploy/z-indexer-server -n z-indexer` 可用。
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: z-indexer-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: z-indexer-server
+    spec:
+      containers:
+        - name: z-indexer
+          image: zopc/z-indexer:local
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            # JVM 参数：与线上逐字一致。
+            - name: JAVA_OPTS
+              value: "-Xms512m -Xmx2g -XX:MaxMetaspaceSize=512m"
+            # ===== 依赖：z-cache 的 redis（跨 ns）=====
+            # 域名 redis.z-cache.svc.cluster.local ⇒ ns z-cache 里的 Service redis。
+            # ⇒ 部署顺序上 z-cache 域要先在（其 redis StatefulSet 在跑），否则本域起不来。
+            - name: REDIS_HOST
+              value: redis.z-cache.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+          resources:
+            limits:
+              cpu: "4"
+              memory: 4Gi
+            requests:
+              cpu: 500m
+              memory: 3Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/z-indexer
+          # 探针打 /actuator/health：本域实测 200（{"status":"UP",...}），
+          # 是本域真实可用的健康端点。
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+              scheme: HTTP
+            # 启动比就绪慢：JVM 起 + 建索引，放宽到 120s 再开始判活。
+            initialDelaySeconds: 120
+            periodSeconds: 30
+            failureThreshold: 6
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: z-indexer-data

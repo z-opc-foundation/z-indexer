@@ -1,0 +1,30 @@
+# ============================================================
+# z-indexer —— PersistentVolumeClaim（索引数据）
+# 线上实况（/tmp/zdeploy-base/z-indexer.yaml 导出为准）：
+#   PVC  z-indexer-data  20Gi  ReadWriteOnce  storageClass local-path  Filesystem
+#   被 Deployment z-indexer-server 挂在 /var/lib/z-indexer
+#
+# ⚠ storageClass local-path 是**节点本地**存储（rancher.io/local-path）：
+#   PV 一旦创建就钉死在创建它的那个节点上（线上这条已绑到 zifang001，
+#   PV 注解 volume.kubernetes.io/selected-node=zifang001）。
+#   ⇒ 这条 PVC **不能**在 zifang002 上重建出同样的亲和性；
+#     换节点 = 换一块盘（数据不跟着走）。
+#   ⇒ 本文件声明的是「同容量同规格的新 PVC」；对已有 PVC 执行 apply 是幂等的，
+#     不会重绑、不会清数据。
+# ============================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: z-indexer-data
+  namespace: z-indexer
+  labels:
+    app.kubernetes.io/name: z-indexer-data
+    app.kubernetes.io/part-of: z-opc-foundation
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Gi
