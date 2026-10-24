@@ -1,6 +1,6 @@
 {
   "name": "@yuku123/z-indexer-component",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "z-indexer 可复用前端组件：索引服务管理（概览/仓库注册表/符号检索调用链；lead 005 §9）",
   "type": "module",
   "main": "./dist/index.js",
