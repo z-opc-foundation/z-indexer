@@ -78,7 +78,7 @@
     -->
     <properties>
         <!-- 项目自身版本（${revision} 机制根）：发版只改这一处，配合 flatten 落字面值 -->
-        <revision>1.0.0</revision>
+        <revision>1.0.1</revision>
 
         <!-- 以下四格是**刻意与父链不同值**的（父链给的是 slf4j-api 1.7.36 / jgit 5.13.4 /
              javaparser-core 3.23.1 / testng 不供），删掉就是换实现，见 DM 里逐格的理由。 -->
