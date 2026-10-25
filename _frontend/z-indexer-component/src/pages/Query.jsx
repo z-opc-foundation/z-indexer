@@ -1,11 +1,11 @@
 /** 符号检索：跨仓 symbol 查询 / 调用链（callers + callees）。 */
 import {useEffect, useState} from 'react'
-import {Alert, AutoComplete, Button, Card, Form, Input, InputNumber, Select, Space, Table, Tabs, Tag, Typography} from 'antd'
+import {Alert, Button, Card, Form, Input, InputNumber, Select, Space, Table, Tabs, Tag, Typography} from 'antd'
 import {ApiOutlined, ArrowDownOutlined, ArrowUpOutlined, SearchOutlined} from '@ant-design/icons'
-import {EmptyState, ErrorState} from '@yuku123/z-frontend-common/ui'
+import {EmptyState, ErrorState, DEFAULT_PAGINATION} from '@yuku123/z-frontend-common/ui'
 import {getCallees, getCallers, listQueryableRepos, searchSymbols} from '../services/api'
 
-const {Title, Paragraph, Text} = Typography
+const {Title, Text} = Typography
 const {TabPane} = Tabs
 
 function buildChainRows(chain) {
@@ -83,7 +83,6 @@ export default function Query() {
     return (
         <div>
             <Title level={4}>符号检索 / 调用链</Title>
-            <Paragraph type="secondary">跨仓搜索 Java 符号（class/method/field），或查调用链（callers 谁调它 / callees 它调谁）。</Paragraph>
 
             <Card style={{marginBottom: 16}}>
                 <Space size="middle" wrap>
@@ -129,7 +128,7 @@ export default function Query() {
                     )}
                     {symResult?.results && (
                         <Table rowKey={(r, i) => i} dataSource={symResult.results} columns={symColumns}
-                               loading={symLoading} size="small" pagination={false}
+                               loading={symLoading} size="small" pagination={DEFAULT_PAGINATION}
                                title={() => <Text>共 {symResult.count} 条</Text>}/>
                     )}
                     {!symLoading && !symResult && !symError && (
@@ -145,7 +144,7 @@ export default function Query() {
                     )}
                     {chainResult?.nodes && (
                         <Table style={{marginTop: 12}} rowKey={(r, i) => i} dataSource={buildChainRows(chainResult)}
-                               loading={chainLoading} size="small" pagination={false}
+                               loading={chainLoading} size="small" pagination={DEFAULT_PAGINATION}
                                columns={[
                                    {title: 'depth', dataIndex: 'depth', width: 70},
                                    {title: '符号', dataIndex: 'sym', ellipsis: true},
@@ -163,7 +162,7 @@ export default function Query() {
                     )}
                     {chainResult?.nodes && (
                         <Table style={{marginTop: 12}} rowKey={(r, i) => i} dataSource={buildChainRows(chainResult)}
-                               loading={chainLoading} size="small" pagination={false}
+                               loading={chainLoading} size="small" pagination={DEFAULT_PAGINATION}
                                columns={[
                                    {title: 'depth', dataIndex: 'depth', width: 70},
                                    {title: '符号', dataIndex: 'sym', ellipsis: true},

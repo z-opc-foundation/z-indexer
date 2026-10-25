@@ -9,7 +9,7 @@ import {
 import {ListTable, StatusBadge, TableToolbar} from '@yuku123/z-frontend-common/ui'
 import {deleteRepo, getBuildLog, listRepos, rebuildRepo, saveRepo, toggleRepo, triggerPoll} from '../services/api'
 
-const {Title, Paragraph, Text} = Typography
+const {Title, Text} = Typography
 const {Option} = Select
 
 // 构建状态不属于 StatusBadge 内置的任何一类，用 mapping 显式传，
@@ -132,7 +132,6 @@ export default function Repos() {
                     </>
                 }
             />
-            <Paragraph type="secondary">注册 Git 仓库后由 IndexSyncRunner 周期构建。Ref 模式：BRANCH（固定分支）/ TAG_PATTERN（正则匹配）/ TAG_LATEST（最新 tag）。</Paragraph>
 
             {/* 空态用共享 EmptyState（lead 008 §2 强制规则 4），不要 antd 默认空图；
                 分页/过滤/空态三件套由基座 ListTable 统一承接。 */}

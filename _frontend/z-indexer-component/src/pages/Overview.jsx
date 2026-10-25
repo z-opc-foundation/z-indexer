@@ -5,7 +5,7 @@ import {ApiOutlined, CheckCircleOutlined, ClockCircleOutlined, DatabaseOutlined,
 import {EmptyState, LoadingState, StatusBadge} from '@yuku123/z-frontend-common/ui'
 import {listRepos, listQueryableRepos} from '../services/api'
 
-const {Title, Paragraph} = Typography
+const {Title} = Typography
 
 function fmtTime(ts) {
     if (!ts || ts <= 0) return '—'
@@ -57,7 +57,6 @@ export default function Overview() {
     return (
         <div>
             <Title level={4}>索引概览</Title>
-            <Paragraph type="secondary">注册表与可查询索引的实时统计</Paragraph>
 
             <Row gutter={16} style={{marginBottom: 24}}>
                 <Col span={6}>
