@@ -1215,7 +1215,7 @@ public class ReadmeClaimsTest {
                 "模块数改错必须报出模块数，实际是：" + e1.getMessage());
 
         // 变异 2：版本改错
-        String tamperedVersion = tamper(readme, "`<revision>` = `1.0.0`", "`<revision>` = `9.9.9`");
+        String tamperedVersion = tamper(readme, "`<revision>` = `1.0.1`", "`<revision>` = `9.9.9`");
         AssertionError e2 = Assert.expectThrows(AssertionError.class, () -> verifyClaims(tamperedVersion, f));
         Assert.assertTrue(e2.getMessage().contains("当前版本"),
                 "版本改错必须报出版本主张，实际是：" + e2.getMessage());

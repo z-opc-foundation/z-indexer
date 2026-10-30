@@ -53,7 +53,7 @@ public class IndexerAutoConfiguration {
 
     private final AtomicBoolean pollerStarted = new AtomicBoolean(false);
 
-    @javax.annotation.Resource
+    @jakarta.annotation.Resource
     private IndexerProperties indexerProperties;
 
     /**

@@ -93,7 +93,7 @@ public class StaticJavaIndexerTest {
         writeText(new File(src, "AuditController.java"),
                 "package demo;\n"
                 + "import java.util.*;\n"
-                + "import javax.validation.Valid;\n"
+                + "import jakarta.validation.Valid;\n"
                 + "public class AuditController {\n"
                 + "    public String check(@Valid Item item, List<String> tags, Map<String, Item> memo) {\n"
                 + "        return item.toString();\n"
@@ -365,7 +365,7 @@ public class StaticJavaIndexerTest {
         Assert.assertTrue(defs.contains("demo.NestedRef#takeList(java.util.List<demo.Misc.Inner>)"),
                 "泛型实参内嵌套类 FQN：实际 defs=" + defs);
         Assert.assertTrue(defs.contains(
-                "demo.AuditController#check((@javax.validation.Valid :: demo.Item),java.util.List<java.lang.String>,java.util.Map<java.lang.String,demo.Item>)"),
+                "demo.AuditController#check((@jakarta.validation.Valid :: demo.Item),java.util.List<java.lang.String>,java.util.Map<java.lang.String,demo.Item>)"),
                 "JDK wildcard 补全（List→java.util.List）+ 参数注解渲染（(@FQN :: T)：实际 defs=" + defs);
         Assert.assertTrue(defs.contains("demo.AuditController#tagged(demo.Item)"),
                 "带值注解不渲染（javac8 AnnotatedType.toString 只渲染无值注解）：实际 defs=" + defs);

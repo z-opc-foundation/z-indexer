@@ -1,10 +1,11 @@
 import {defineConfig} from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
+import {safeEmptyOutDir} from '../../build-tools/safe-vite-plugin.mjs'
 
 // z-indexer 组件层双入口（lead 005 §1.2/§9）：'.' 桶导出 + './pages' manifest
 export default defineConfig({
-    plugins: [react()],
+    plugins: [safeEmptyOutDir(), react()],
     build: {
         lib: {
             entry: {
@@ -14,7 +15,7 @@ export default defineConfig({
             formats: ['es'],
         },
         outDir: 'dist',
-        emptyOutDir: true,
+        emptyOutDir: false,
         rollupOptions: {
             external: ['react', 'react-dom', 'react-dom/client', 'react-router-dom',
                        'antd', '@ant-design/icons', 'axios', '@yuku123/z-frontend-common',

@@ -902,7 +902,7 @@ public class StaticJavaIndexer {
         }
     }
 
-    /** 参数 TYPE_USE 语义注解渲染（空格连接，如 "(@javax.validation.Valid"）；无有效注解返回空。 */
+    /** 参数 TYPE_USE 语义注解渲染（空格连接，如 "(@jakarta.validation.Valid"）；无有效注解返回空。 */
     private String annotationsOf(Parameter p, FileCtx ctx) {
         if (p.getAnnotations().isEmpty()) {
             return "";
@@ -2094,7 +2094,7 @@ public class StaticJavaIndexer {
             return t;
         }
         if (name.startsWith("java.") || name.startsWith("javax.")) {
-            return name; // 源码显式限定写法（java.util.List x / @javax.validation.Valid p）
+            return name; // 源码显式限定写法（java.util.List x / @jakarta.validation.Valid p）
         }
         if (JAVA_LANG.contains(name)) {
             return "java.lang." + name;
