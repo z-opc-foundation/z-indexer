@@ -17,7 +17,7 @@
     <artifactId>z-indexer-core</artifactId>
     <packaging>jar</packaging>
 
-    <name>z-indexer-core</name>
+    <name>z-indexer :: core</name>
     <description>索引核心：仓库注册表 + git 变更检测 + pom 注入 + 构建管线 + 内存倒排查询</description>
 
     <!-- 迁移前这里 import 过 io.github.yuku123:z-indexer:${revision} 当 BOM —— 那正是本模块的

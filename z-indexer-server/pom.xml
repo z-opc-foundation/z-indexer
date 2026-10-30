@@ -13,7 +13,7 @@
     <artifactId>z-indexer-server</artifactId>
     <packaging>jar</packaging>
 
-    <name>z-indexer-server</name>
+    <name>z-indexer :: server</name>
     <description>z-indexer 可执行进程 — Spring Boot fat jar：装配 starter + 服务配置 + 内置工具链</description>
 
     <!--

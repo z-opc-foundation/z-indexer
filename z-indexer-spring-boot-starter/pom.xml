@@ -14,7 +14,7 @@
     <artifactId>z-indexer-spring-boot-starter</artifactId>
     <packaging>jar</packaging>
 
-    <name>z-indexer-spring-boot-starter</name>
+    <name>z-indexer :: spring-boot-starter</name>
     <description>z-indexer Spring Boot starter - REST API + 装配 + 调度</description>
 
     <!-- 这里原来重复定义了 maven.compiler.source/target=8、java.version=8、

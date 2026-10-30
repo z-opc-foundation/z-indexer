@@ -20,7 +20,7 @@
     <version>${revision}</version>
     <packaging>pom</packaging>
 
-    <name>z-indexer</name>
+    <name>z-indexer :: root</name>
     <description>代码索引服务：仓库注册表 + 定时轮询重建索引 + 符号/调用链查询 + 监控</description>
     <!-- 中央发布对元数据是**硬门**，不是装饰：z-boot/README.md 步骤 13 实测「一个 component 的 pom
          缺 <name> 或 DM 里有不带版本的条目，中央把整批判 FAILED」。url/licenses/scm/developers
