@@ -16,7 +16,7 @@ Node + Babel），产物落成 JSONL 倒排索引常驻内存，对外只给四�
 | **仓库** | `z-indexer`（`git@github.com:z-opc-foundation/z-indexer.git`，分支 `main`） |
 | **Maven 坐标** | `io.github.yuku123:z-indexer:${revision}`（根 POM `<packaging>pom</packaging>`） |
 | **当前版本** | `<revision>` = `1.0.1`（CI-friendly versions + flatten-maven-plugin，`flattenMode=oss`） |
-| **父项目** | `io.github.yuku123:z-boot-parent:1.2.0`（`<relativePath/>` 留空，parent 在 repo1 不在磁盘；其自身 parent 为 `z-boot:1.0.19`，实测中央发布 pom） |
+| **父项目** | `io.github.yuku123:z-boot-parent:1.2.1`（`<relativePath/>` 留空，parent 在 repo1 不在磁盘；其自身 parent 为 `z-boot:1.0.19`，实测中央发布 pom） |
 | **Maven Central** | **已发布 1.0.0**（2026-10-20 现测 repo1 均 200）：`z-indexer:1.0.0`（pom）、`z-indexer-core:1.0.0`（pom+jar）、`z-indexer-spring-boot-starter:1.0.0`（pom+jar）；三者的 `maven-metadata.xml` 都只列 `1.0.0`；`1.0.1` 全部 404；`z-indexer-server` 目录整体 404（设计上永不发布，见下） |
 | **模块数** | 3：`z-indexer-core` / `z-indexer-spring-boot-starter` / `z-indexer-server` |
 | **默认端口** | 本仓 `application.yaml` **未设** `server.port`（实测无该键），端口由部署侧下发；仓内唯一显式端口配置是测试 main 里的 `server.port=0`（随机口） |
@@ -53,7 +53,7 @@ Node + Babel），产物落成 JSONL 倒排索引常驻内存，对外只给四�
 
 ```
 z-indexer/
-├── pom.xml                              # 根聚合 POM：z-boot-parent:1.2.0 + <revision>1.0.1 + central profile
+├── pom.xml                              # 根聚合 POM：z-boot-parent:1.2.1 + <revision>1.0.1 + central profile
 ├── _doc/                                # 文档收口目录（001_arch/ 内含项目总览 00-overview.md）
 ├── _frontend/                           # 前端暂存位（不被 Maven 构建读取，29 个受控文件）
 │   ├── README.md                        # 前端索引器说明（交付副本在 resources/bin/，本目录不被构建读取）
@@ -88,7 +88,7 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 | 层级 | 技术 / 版本 |
 |------|-------------|
 | 语言 / 运行时 | Java 17（父链下发 `maven.compiler.source/target=17`；本仓 `java8-floor-on-jdk9plus` profile 在 JDK 9+ 上强制 `release=17`） |
-| 框架 | Spring Boot 3.3.13（版本由 `z-boot-parent:1.2.0` 属性 `spring-boot.version` 供） |
+| 框架 | Spring Boot 3.3.13（版本由 `z-boot-parent:1.2.1` 属性 `spring-boot.version` 供） |
 | Git 客户端 | `org.eclipse.jgit:org.eclipse.jgit` **5.13.3.202401111512-r**（刻意不回地板的 5.13.4：JGit 6.x 基线 Java 11，5.13.4 那份 jar Build-Jdk-Spec=17，JDK 8 运行期 `NoSuchMethodError`） |
 | 静态解析 | `com.github.javaparser:javaparser-core` **3.26.4**（高于地板 3.23.1，回地板等于换实现） |
 | 日志 | `slf4j-api` **2.0.13**（不回 1.7.36：运行期绑定是 `log4j-slf4j2-impl`，属 SLF4J 2.x provider） |
@@ -97,7 +97,7 @@ bundle），`excludeArtifacts` 才是真正生效的那道。`z-indexer-core` �
 | 缓存客户端 | `spring-boot-starter-data-redis`（lettuce 连接池 + Redisson 默认） |
 | 测试 | TestNG **7.5.1**（7.6 起基线 Java 11；父链不供该格） |
 | 构建 | Maven · `flatten-maven-plugin`（`oss` 模式，剥 parent 链写面值）· `maven-deploy-plugin` 3.1.4（父链不管这件） |
-| z-util 版本 | 由父链属性直接供（实测 `z-boot-parent:1.2.0` 的 `<z-util.version>=1.0.19`；`z-boot-fleet` / `z-boot-dependencies` 两个仓已退役，版本表并进 parent）。本仓自己的 `<z-indexer.version>` 槽位在 parent 1.1.0 里**不存在**（本仓坐标由根 POM 的 `${project.version}` 自钉） |
+| z-util 版本 | 由父链属性直接供（实测 `z-boot-parent:1.2.1` 的 `<z-util.version>=1.0.19`；`z-boot-fleet` / `z-boot-dependencies` 两个仓已退役，版本表并进 parent）。本仓自己的 `<z-indexer.version>` 槽位在 parent 1.1.0 里**不存在**（本仓坐标由根 POM 的 `${project.version}` 自钉） |
 
 本仓 `pom.xml` 只保留 **5 格刻意与父链不同值/父链不供** 的属性：`slf4j.version`、`jgit.version`、
 `javaparser.version`、`testng.version`、`maven-deploy-plugin.version`；其余第三方一律不在这钉版本。
@@ -166,7 +166,7 @@ Actuator 暴露：`management.endpoints.web.exposure.include=health,info,metrics
 mvn clean install -DskipTests
 ```
 
-若报解析不到 parent，先确认能拉到 `io.github.yuku123:z-boot-parent:1.2.0`（在 repo1，不在磁盘）。
+若报解析不到 parent，先确认能拉到 `io.github.yuku123:z-boot-parent:1.2.1`（在 repo1，不在磁盘）。
 
 ### 起进程（fat jar）
 

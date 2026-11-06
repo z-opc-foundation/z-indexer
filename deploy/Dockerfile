@@ -28,7 +28,7 @@
 #   ⇒ 令牌只从环境变量 `Z_INDEXER_TOKEN` 注入（Secret 注入），**不进镜像、不进仓**。
 # ============================================================
 
-ARG BASE_IMAGE=eclipse-temurin:8-jre-jammy
+ARG BASE_IMAGE=eclipse-temurin:17-jre-jammy
 FROM ${BASE_IMAGE}
 
 LABEL maintainer="zifang"
