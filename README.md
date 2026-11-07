@@ -55,7 +55,7 @@ Node + Babel），产物落成 JSONL 倒排索引常驻内存，对外只给四�
 z-indexer/
 ├── pom.xml                              # 根聚合 POM：z-boot-parent:1.2.2 + <revision>1.0.1 + central profile
 ├── _doc/                                # 文档收口目录（001_arch/ 内含项目总览 00-overview.md）
-├── _frontend/                           # 前端暂存位（不被 Maven 构建读取，29 个受控文件）
+├── _frontend/                           # 前端暂存位（不被 Maven 构建读取，22 个受控文件）
 │   ├── README.md                        # 前端索引器说明（交付副本在 resources/bin/，本目录不被构建读取）
 │   ├── z-indexer-component/             # 组件库（React + Vite）
 │   └── z-indexer-suit/                  # 控制台壳工程（React + Vite）
