@@ -278,8 +278,10 @@ userinfo，被改写会让这条地址直接不可用）、`ssh://git@host/...`�
 `GitUrlLeakGuardTest` + `IndexAdminGitUrlLeakTest`（源码普查，把"所有 `"gitUrl", X` 里的 X
 必须含 mask"变成不变量，并按出口数配平：core 侧 1+3、starter 侧 3）。
 
-**仍未解决、不在本节范围**：本仓的管理端点**零鉴权**（`/index/admin/**` 任何人可调）。
-是否由网关统一鉴权取决于部署拓扑，本仓无从判断，需要部署侧拍板。
+**鉴权现状（2026-11-07 复核订正）**：`IndexerAuthFilter` 已落地（常量时间比对 +
+`auth-require-token` 缺 token 拒启动），server 侧 `application.yaml` 已注入 token。
+但 starter 嵌入式使用时 token 默认为空 ⇒ **放行并打 warn**，是否真正启用仍取决于部署注入。
+旧表述「管理端点零鉴权」已不成立，但也不能当成默认就安全。是否由网关统一鉴权取决于部署拓扑，需部署侧拍板。
 
 ---
 
