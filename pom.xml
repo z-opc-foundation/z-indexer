@@ -90,7 +90,7 @@
             是 5.13.4 在 JDK 8 运行期 NoSuchMethodError（RawParseUtils.decodeNoFallback，
             Java 9+ 的 nio 协变引用）⇒ 这一格不回地板。
         -->
-        <jgit.version>5.13.3.202401111512-r</jgit.version>
+        <jgit.version>5.13.4.202507202350-r</jgit.version>
         <javaparser.version>3.26.4</javaparser.version>
         <!-- TestNG 7.6 起基线抬到 Java 11（3ffa5de 的记录）；本仓用的 7.5.1 现测
              org/testng/TestNG.class major=0x0034（=52，Java 8）。父链不供这一格 ⇒ 键必须留。 -->
