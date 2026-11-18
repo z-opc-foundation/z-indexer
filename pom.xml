@@ -11,7 +11,7 @@
     <parent>
         <groupId>io.github.yuku123</groupId>
         <artifactId>z-boot-parent</artifactId>
-        <version>1.2.3</version>
+        <version>1.2.4</version>
         <relativePath/>
     </parent>
 
@@ -84,11 +84,11 @@
              javaparser-core 3.23.1 / testng 不供），删掉就是换实现，见 DM 里逐格的理由。 -->
         <slf4j.version>2.0.13</slf4j.version>
         <!--
-            JGit 6.x 基线 Java 11（class 55）。地板那格 5.13.4.202507202350-r 与留着的
-            5.13.3.202401111512-r 两份 jar 现测：MANIFEST Build-Jdk-Spec 分别是 17 与 1.8
-            （class major 两边都是 52，所以光看字节码版本看不出来）。3ffa5de 那次回落记录的
-            是 5.13.4 在 JDK 8 运行期 NoSuchMethodError（RawParseUtils.decodeNoFallback，
-            Java 9+ 的 nio 协变引用）⇒ 这一格不回地板。
+            JGit 6.x 基线 Java 11（class 55）。这一格曾刻意留在 5.13.3.202401111512-r
+            （那份 jar Build-Jdk-Spec=1.8）：5.13.4 那份 Build-Jdk-Spec=17，在 JDK 8 运行期
+            抛 NoSuchMethodError（RawParseUtils.decodeNoFallback，Java 9+ 的 nio 协变引用）。
+            2026-11-17 第二轮漏洞治理已随全仓 Java 17 基线统一抬到 5.13.4.202507202350-r
+            （= 父链地板同值），该 Java 8 兼容理由随之解除 ⇒ 这里不再是"刻意与父链不同值"。
         -->
         <jgit.version>5.13.4.202507202350-r</jgit.version>
         <javaparser.version>3.26.4</javaparser.version>

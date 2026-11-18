@@ -14,7 +14,7 @@ z-indexer 是组织内的**代码索引中心**：把一批 Git 仓库登记进�
 
 ```
 z-indexer/
-├── pom.xml                              # 聚合根：parent z-boot-parent:1.1.0，<revision>1.0.0</revision>，3 个 <module>，central profile
+├── pom.xml                              # 聚合根：parent z-boot-parent:1.2.4，<revision>1.0.0</revision>，3 个 <module>，central profile
 ├── _frontend/
 │   ├── README.md                        # 前端索引器（frontend-indexer.cjs）设计说明 + 编辑用暂存位口径
 │   ├── z-indexer-component/             # 前端组件包

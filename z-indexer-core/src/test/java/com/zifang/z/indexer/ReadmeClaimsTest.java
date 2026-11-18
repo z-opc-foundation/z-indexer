@@ -573,7 +573,22 @@ public class ReadmeClaimsTest {
             throw new IllegalStateException("目录不存在：_frontend");
         }
         try (Stream<Path> s = Files.walk(d)) {
-            return (int) s.filter(Files::isRegularFile).count();
+            // 2026-11-18 修：只数**受控文件**（git 跟踪的源码），
+            //   不能把 node_modules / dist / 构建产物算进来 ——
+            //   那会让「受控文件数」随一次 npm install 剧烈漂移（实测 22 ⇒ 50985）。
+            //   判据：路径里不含依赖/产物目录；lock 文件照旧计入（README 的 22 口径含 2 个 lock）。
+            return (int) s.filter(Files::isRegularFile)
+                    .filter(p -> {
+                        String rel = d.relativize(p).toString();
+                        for (String seg : rel.split("[/\\\\]")) {
+                            if (seg.equals("node_modules") || seg.equals("dist")
+                                    || seg.equals("target") || seg.equals(".git")) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    })
+                    .count();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
